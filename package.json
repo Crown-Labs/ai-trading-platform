@@ -1,0 +1,21 @@
+{
+  "name": "ai-trading-platform",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n web,api \"yarn workspace @ai-trading/web dev\" \"yarn workspace @ai-trading/backend dev\"",
+    "web": "yarn workspace @ai-trading/web",
+    "backend": "yarn workspace @ai-trading/backend",
+    "shared": "yarn workspace @ai-trading/shared"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "yarn": ">=1.22.0"
+  }
+}
