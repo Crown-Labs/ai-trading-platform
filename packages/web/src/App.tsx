@@ -46,7 +46,7 @@ function App() {
         </div>
 
         {/* Left col: Chat — fixed, does not scroll */}
-        <div className="w-80 flex-shrink-0 border-r border-dark-700 p-4 flex flex-col overflow-hidden">
+        <div className="flex-shrink-0 border-r border-dark-700 p-4 flex flex-col overflow-hidden" style={{ width: '420px' }}>
           {activeSession ? (
             <ChatPanel session={activeSession} onUpdate={handleUpdate} />
           ) : (
