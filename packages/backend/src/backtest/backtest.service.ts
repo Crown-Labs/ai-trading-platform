@@ -79,6 +79,33 @@ export class BacktestService {
     indicators: Record<string, number[]>,
     index: number,
   ): boolean {
+    try {
+      // Build vars object with all indicator values at this index
+      const vars: Record<string, number> = {};
+      for (const [key, values] of Object.entries(indicators)) {
+        const val = values[index];
+        if (val === undefined || isNaN(val)) return false;
+        vars[key] = val;
+      }
+
+      // Replace variable names with actual values
+      let expr = condition
+        .replace(/\band\b/gi, '&&')
+        .replace(/\bor\b/gi, '||');
+
+      // Replace known variables (longest first to avoid partial matches)
+      const varNames = Object.keys(vars).sort((a, b) => b.length - a.length);
+      for (const name of varNames) {
+        expr = expr.replace(new RegExp(`\\b${name}\\b`, 'g'), String(vars[name]));
+      }
+
+      // Safe eval using Function
+      return new Function(`"use strict"; return (${expr});`)() as boolean;
+    } catch {
+      return false;
+    }
+
+    // Legacy fallback (unreachable but kept for reference)
     const match = condition.match(
       /(\w+)\s*(>|<|>=|<=|==)\s*(\w+(?:\.\d+)?)/,
     );
