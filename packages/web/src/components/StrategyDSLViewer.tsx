@@ -89,24 +89,22 @@ export default function StrategyDSLViewer({ strategy }: StrategyDSLViewerProps) 
           </p>
         </div>
 
-        {/* SHORT row */}
-        <div className="flex items-center gap-2">
-          <span className="flex-shrink-0 text-xs font-bold bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded w-14 text-center">SHORT</span>
-          <p className="text-xs text-gray-300 font-mono truncate">
-            {strategy.entry.short_condition?.length ? (
-              <>
-                {strategy.entry.short_condition.map((c, i) => (
-                  <span key={i}><span className="text-orange-500">▲</span>{c}{i < (strategy.entry.short_condition?.length ?? 0) - 1 ? ' & ' : ''}</span>
-                ))}
-                {strategy.exit.short_condition?.length && (
-                  <><span className="text-gray-600 mx-2">·</span>{strategy.exit.short_condition.map((c, i) => (
-                    <span key={i}><span className="text-orange-400">▼</span>{c}</span>
-                  ))}</>
-                )}
-              </>
-            ) : <span className="text-gray-600">—</span>}
-          </p>
-        </div>
+        {/* SHORT row — only show if short conditions exist */}
+        {strategy.entry.short_condition?.length ? (
+          <div className="flex items-center gap-2">
+            <span className="flex-shrink-0 text-xs font-bold bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded w-14 text-center">SHORT</span>
+            <p className="text-xs text-gray-300 font-mono truncate">
+              {strategy.entry.short_condition.map((c, i) => (
+                <span key={i}><span className="text-orange-500">▲</span>{c}{i < (strategy.entry.short_condition?.length ?? 0) - 1 ? ' & ' : ''}</span>
+              ))}
+              {strategy.exit.short_condition?.length && (
+                <><span className="text-gray-600 mx-2">·</span>{strategy.exit.short_condition.map((c, i) => (
+                  <span key={i}><span className="text-orange-400">▼</span>{c}</span>
+                ))}</>
+              )}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       {/* Risk Parameters */}
