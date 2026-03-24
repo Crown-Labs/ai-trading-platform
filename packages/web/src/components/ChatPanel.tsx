@@ -163,6 +163,8 @@ Please analyze these results and suggest specific improvements to optimize the s
               ...messagesWithRun,
               { role: 'assistant', content: fullText },
             ],
+            backtestResult,
+            candles,
           });
         }
       }
