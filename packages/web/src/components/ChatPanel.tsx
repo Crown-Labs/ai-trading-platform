@@ -320,70 +320,89 @@ Please analyze these results and suggest specific improvements to optimize the s
 
       <div className="flex-1 overflow-y-auto space-y-3 mb-4 min-h-0">
         {messages.length === 0 && !streamingText && (
-          <p className="text-gray-500 text-sm">
-            Describe your trading strategy in plain English...
-          </p>
-        )}
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`p-3 rounded-lg text-sm ${
-              msg.role === 'user'
-                ? 'bg-primary-600/20 text-primary-300 ml-8'
-                : 'bg-dark-700 text-gray-300 mr-8'
-            }`}
-          >
-            <span className="font-medium text-xs text-gray-500 block mb-1">
-              {msg.role === 'user' ? 'You' : 'AI'}
-            </span>
-            <div className="font-sans">
-              {msg.role === 'assistant'
-                ? renderContent(msg.content)
-                : msg.content}
+          <div className="flex flex-col items-center justify-center h-full text-center px-6">
+            <div className="w-12 h-12 rounded-full bg-primary-500/10 border border-primary-500/20 flex items-center justify-center mb-3">
+              <span className="text-2xl">&#x1F4C8;</span>
             </div>
+            <p className="text-gray-400 text-sm font-medium mb-1">Start with a strategy</p>
+            <p className="text-gray-600 text-xs">
+              e.g. &quot;Buy BTC when RSI drops below 30, sell when RSI hits 70, stop loss 3%&quot;
+            </p>
           </div>
-        ))}
+        )}
+        {messages.map((msg, i) =>
+          msg.role === 'user' ? (
+            <div key={i} className="flex justify-end">
+              <div className="max-w-[80%] bg-primary-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm">
+                {msg.content}
+              </div>
+            </div>
+          ) : (
+            <div key={i} className="flex gap-2 items-start">
+              <div className="w-7 h-7 rounded-full bg-dark-600 border border-primary-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-primary-400 text-xs font-bold">AI</span>
+              </div>
+              <div className="max-w-[85%] bg-dark-700 text-gray-200 px-4 py-2.5 rounded-2xl rounded-tl-sm text-sm">
+                <div className="font-sans">{renderContent(msg.content)}</div>
+              </div>
+            </div>
+          ),
+        )}
         {streamingText && (
-          <div className="bg-dark-700 text-gray-300 p-3 rounded-lg text-sm mr-8">
-            <span className="font-medium text-xs text-gray-500 block mb-1">
-              AI
-            </span>
-            <div className="font-sans">{renderContent(streamingText)}</div>
+          <div className="flex gap-2 items-start">
+            <div className="w-7 h-7 rounded-full bg-dark-600 border border-primary-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-primary-400 text-xs font-bold">AI</span>
+            </div>
+            <div className="max-w-[85%] bg-dark-700 text-gray-200 px-4 py-2.5 rounded-2xl rounded-tl-sm text-sm">
+              <div className="font-sans">{renderContent(streamingText)}</div>
+              <span className="inline-block w-1.5 h-4 bg-primary-400 animate-pulse ml-0.5 align-middle" />
+            </div>
           </div>
         )}
         {loading && !streamingText && (
-          <div className="bg-dark-700 text-gray-400 p-3 rounded-lg text-sm mr-8">
-            Thinking...
+          <div className="flex gap-2 items-center">
+            <div className="w-7 h-7 rounded-full bg-dark-600 border border-primary-500/30 flex items-center justify-center flex-shrink-0">
+              <span className="text-primary-400 text-xs font-bold">AI</span>
+            </div>
+            <div className="bg-dark-700 px-4 py-2.5 rounded-2xl rounded-tl-sm">
+              <div className="flex gap-1 items-center h-4">
+                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="flex gap-2">
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          placeholder="e.g. Buy BTC when RSI below 30, sell when RSI above 70, stop loss 2%"
-          className="flex-grow bg-dark-700 border border-dark-600 rounded-lg px-4 py-2 text-gray-200 text-sm placeholder-gray-500 resize-none focus:outline-none focus:border-primary-500"
-          rows={2}
-        />
-        <button
-          onClick={handleSend}
-          disabled={loading || !input.trim()}
-          className="btn-primary px-4 self-end disabled:opacity-50"
-        >
-          Send
-        </button>
+      <div className="border-t border-dark-700 pt-3">
+        <div className="flex gap-2 items-end">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder="Describe your trading strategy..."
+            className="flex-grow bg-dark-700 border border-dark-600 rounded-xl px-4 py-2.5 text-gray-200 text-sm placeholder-gray-600 resize-none focus:outline-none focus:border-primary-500/50 transition-colors"
+            rows={2}
+          />
+          <button
+            onClick={handleSend}
+            disabled={loading || !input.trim()}
+            className="bg-primary-600 hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl px-4 py-2.5 text-sm font-medium transition-colors flex-shrink-0 self-end"
+          >
+            Send
+          </button>
+        </div>
       </div>
 
       {session.strategy && (
-        <div className="mt-3 space-y-2">
+        <div className="border-t border-dark-700 pt-3 mt-1 space-y-2">
           <div className="flex items-center gap-1">
             <span className="text-xs text-gray-500">Range:</span>
             {PRESETS.map((p) => {
