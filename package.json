@@ -9,7 +9,8 @@
     "dev": "concurrently -n web,api \"yarn workspace @ai-trading/web dev\" \"yarn workspace @ai-trading/backend dev\"",
     "web": "yarn workspace @ai-trading/web",
     "backend": "yarn workspace @ai-trading/backend",
-    "shared": "yarn workspace @ai-trading/shared"
+    "shared": "yarn workspace @ai-trading/shared",
+    "postinstall": "yarn workspace @ai-trading/shared build"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
