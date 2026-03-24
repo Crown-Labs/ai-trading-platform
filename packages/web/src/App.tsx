@@ -74,6 +74,8 @@ function App() {
                       <BacktestChart
                         candles={candles}
                         trades={backtestResult.trades}
+                        symbol={strategy?.market?.symbol ?? 'BTCUSDT'}
+                        defaultTimeframe={strategy?.market?.timeframe ?? '1h'}
                       />
                     )}
                     <TradeTable trades={backtestResult.trades} />
