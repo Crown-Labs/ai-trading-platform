@@ -9,6 +9,11 @@ import {
 import { MarketDataService } from '../market-data/market-data.service';
 import { IndicatorsService } from '../indicators/indicators.service';
 
+const DEFAULT_COMMISSION = 0.001;
+const DEFAULT_SLIPPAGE = 0.0005;
+const DEFAULT_LEVERAGE = 1;
+const INITIAL_CAPITAL = 10000;
+
 @Injectable()
 export class BacktestService {
   constructor(
@@ -45,12 +50,19 @@ export class BacktestService {
       );
     }
 
+    const commission = strategy.execution?.commission ?? DEFAULT_COMMISSION;
+    const slippage = strategy.execution?.slippage ?? DEFAULT_SLIPPAGE;
+    const leverage = strategy.execution?.leverage ?? DEFAULT_LEVERAGE;
+
     const trades = this.simulateTrades(
       candles,
       indicatorValues,
       strategy.entry.condition,
       strategy.exit.condition,
       strategy.risk,
+      commission,
+      slippage,
+      leverage,
     );
 
     const metrics = this.calculateMetrics(trades);
@@ -63,7 +75,6 @@ export class BacktestService {
     indicators: Record<string, number[]>,
     index: number,
   ): boolean {
-    // Parse conditions like 'rsi < 30', 'rsi > 70', 'ema_fast > ema_slow'
     const match = condition.match(
       /(\w+)\s*(>|<|>=|<=|==)\s*(\w+(?:\.\d+)?)/,
     );
@@ -105,6 +116,9 @@ export class BacktestService {
     entryConditions: string[],
     exitConditions: string[],
     risk: { stop_loss: number; take_profit: number; position_size: number },
+    commission: number,
+    slippage: number,
+    leverage: number,
   ): Trade[] {
     const trades: Trade[] = [];
     let inPosition = false;
@@ -125,17 +139,31 @@ export class BacktestService {
         }
       } else {
         const currentPrice = candles[i].close;
-        const pnlPercent = ((currentPrice - entryPrice) / entryPrice) * 100;
+        const rawPnlPercent =
+          ((currentPrice - entryPrice) / entryPrice) * 100;
 
         const exitSignal =
           exitConditions.every((cond) =>
             this.evaluateCondition(cond, indicators, i),
           ) ||
-          pnlPercent <= -risk.stop_loss ||
-          pnlPercent >= risk.take_profit;
+          rawPnlPercent <= -risk.stop_loss ||
+          rawPnlPercent >= risk.take_profit;
 
         if (exitSignal) {
-          const profit = (currentPrice - entryPrice) * risk.position_size;
+          const effectiveEntry = entryPrice * (1 + slippage);
+          const effectiveExit = currentPrice * (1 - slippage);
+          const positionValue =
+            INITIAL_CAPITAL * risk.position_size * leverage;
+          const fee = positionValue * commission * 2;
+          const rawPnl =
+            ((effectiveExit - effectiveEntry) / effectiveEntry) *
+            positionValue;
+          const netPnl = rawPnl - fee;
+          const netPnlPercent = (netPnl / INITIAL_CAPITAL) * 100;
+
+          const sign = netPnlPercent >= 0 ? '+' : '\u2212';
+          const formatted = `${sign}${Math.abs(netPnlPercent).toFixed(2)}%`;
+
           tradeId++;
           trades.push({
             id: tradeId,
@@ -144,9 +172,10 @@ export class BacktestService {
             entryPrice,
             exitPrice: currentPrice,
             side: 'long',
-            profit: parseFloat(profit.toFixed(2)),
-            profitPercent: parseFloat(pnlPercent.toFixed(2)),
-            isWin: profit > 0,
+            pnl: parseFloat(netPnl.toFixed(2)),
+            pnlPercent: formatted,
+            fees: parseFloat(fee.toFixed(2)),
+            isWin: netPnl > 0,
           });
           inPosition = false;
         }
@@ -164,31 +193,48 @@ export class BacktestService {
         totalReturn: 0,
         maxDrawdown: 0,
         sharpeRatio: 0,
+        profitFactor: 0,
+        totalFees: 0,
       };
     }
 
     const wins = trades.filter((t) => t.isWin).length;
-    const totalReturn = trades.reduce((sum, t) => sum + t.profitPercent, 0);
+    const totalFees = trades.reduce((sum, t) => sum + t.fees, 0);
 
-    // Max drawdown
-    let peak = 0;
+    // Equity curve for drawdown and total return
+    let equity = INITIAL_CAPITAL;
+    let peak = INITIAL_CAPITAL;
     let maxDrawdown = 0;
-    let cumulative = 0;
+
     for (const trade of trades) {
-      cumulative += trade.profitPercent;
-      if (cumulative > peak) peak = cumulative;
-      const drawdown = peak - cumulative;
+      equity += trade.pnl;
+      if (equity > peak) peak = equity;
+      const drawdown = ((peak - equity) / peak) * 100;
       if (drawdown > maxDrawdown) maxDrawdown = drawdown;
     }
 
-    // Sharpe ratio (simplified)
-    const returns = trades.map((t) => t.profitPercent);
-    const avgReturn = totalReturn / trades.length;
+    const totalReturn =
+      ((equity - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
+
+    // Profit factor
+    const grossProfit = trades
+      .filter((t) => t.pnl > 0)
+      .reduce((sum, t) => sum + t.pnl, 0);
+    const grossLoss = Math.abs(
+      trades.filter((t) => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0),
+    );
+    const profitFactor = grossLoss === 0 ? 0 : grossProfit / grossLoss;
+
+    // Annualized Sharpe ratio
+    const returns = trades.map((t) => t.pnl / INITIAL_CAPITAL);
+    const meanReturn =
+      returns.reduce((sum, r) => sum + r, 0) / returns.length;
     const variance =
-      returns.reduce((sum, r) => sum + (r - avgReturn) ** 2, 0) /
-      trades.length;
+      returns.reduce((sum, r) => sum + (r - meanReturn) ** 2, 0) /
+      returns.length;
     const stdDev = Math.sqrt(variance);
-    const sharpeRatio = stdDev === 0 ? 0 : avgReturn / stdDev;
+    const sharpeRatio =
+      stdDev === 0 ? 0 : (meanReturn / stdDev) * Math.sqrt(252);
 
     return {
       totalTrades: trades.length,
@@ -196,6 +242,8 @@ export class BacktestService {
       totalReturn: parseFloat(totalReturn.toFixed(2)),
       maxDrawdown: parseFloat(maxDrawdown.toFixed(2)),
       sharpeRatio: parseFloat(sharpeRatio.toFixed(2)),
+      profitFactor: parseFloat(profitFactor.toFixed(2)),
+      totalFees: parseFloat(totalFees.toFixed(2)),
     };
   }
 }

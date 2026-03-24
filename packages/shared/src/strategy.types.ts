@@ -1,3 +1,9 @@
+export interface ExecutionParams {
+  commission: number;   // % as decimal e.g. 0.001 for 0.1%
+  slippage: number;     // % as decimal e.g. 0.0005 for 0.05%
+  leverage: number;     // 1 = spot, >1 = futures
+}
+
 export interface StrategyDSL {
   name: string;
   market: {
@@ -21,17 +27,19 @@ export interface StrategyDSL {
     take_profit: number;
     position_size: number;
   };
+  execution?: ExecutionParams;
 }
 
 export interface Trade {
   id: number;
   entryTime: string;
-  exitTime: string;
   entryPrice: number;
+  exitTime: string;
   exitPrice: number;
   side: 'long' | 'short';
-  profit: number;
-  profitPercent: number;
+  pnl: number;
+  pnlPercent: string;
+  fees: number;
   isWin: boolean;
 }
 
@@ -41,6 +49,8 @@ export interface BacktestMetrics {
   totalReturn: number;
   maxDrawdown: number;
   sharpeRatio: number;
+  profitFactor: number;
+  totalFees: number;
 }
 
 export interface BacktestResult {

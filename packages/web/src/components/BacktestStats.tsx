@@ -26,10 +26,20 @@ export default function BacktestStats({ metrics }: BacktestStatsProps) {
       value: `-${metrics.maxDrawdown}%`,
       color: 'text-red-500',
     },
+    {
+      label: 'Sharpe Ratio',
+      value: metrics.sharpeRatio.toFixed(2),
+      color: metrics.sharpeRatio >= 1 ? 'text-green-500' : metrics.sharpeRatio >= 0 ? 'text-yellow-500' : 'text-red-500',
+    },
+    {
+      label: 'Profit Factor',
+      value: metrics.profitFactor.toFixed(2),
+      color: metrics.profitFactor >= 1.5 ? 'text-green-500' : metrics.profitFactor >= 1 ? 'text-yellow-500' : 'text-red-500',
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
       {stats.map((stat) => (
         <div key={stat.label} className="card text-center">
           <p className="text-gray-400 text-xs mb-1">{stat.label}</p>

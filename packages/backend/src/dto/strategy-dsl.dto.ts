@@ -38,6 +38,17 @@ class RiskDto {
   position_size: number;
 }
 
+class ExecutionParamsDto {
+  @ApiProperty({ example: 0.001, description: 'Commission as decimal (0.001 = 0.1%)' })
+  commission: number;
+
+  @ApiProperty({ example: 0.0005, description: 'Slippage as decimal (0.0005 = 0.05%)' })
+  slippage: number;
+
+  @ApiProperty({ example: 1, description: 'Leverage multiplier (1 = spot)' })
+  leverage: number;
+}
+
 export class StrategyDSLDto {
   @ApiProperty({ example: 'BTCUSDT RSI(14) Strategy' })
   name: string;
@@ -56,6 +67,9 @@ export class StrategyDSLDto {
 
   @ApiProperty({ type: RiskDto })
   risk: RiskDto;
+
+  @ApiProperty({ type: ExecutionParamsDto, required: false })
+  execution?: ExecutionParamsDto;
 }
 
 export class ParseStrategyDto {
@@ -90,11 +104,14 @@ class TradeDto {
   @ApiProperty({ example: 'long' })
   side: string;
 
-  @ApiProperty({ example: 100 })
-  profit: number;
+  @ApiProperty({ example: 150.25 })
+  pnl: number;
 
-  @ApiProperty({ example: 2.38 })
-  profitPercent: number;
+  @ApiProperty({ example: '+1.50%' })
+  pnlPercent: string;
+
+  @ApiProperty({ example: 20.0 })
+  fees: number;
 
   @ApiProperty({ example: true })
   isWin: boolean;
@@ -115,6 +132,12 @@ class BacktestMetricsDto {
 
   @ApiProperty({ example: 1.2 })
   sharpeRatio: number;
+
+  @ApiProperty({ example: 1.85 })
+  profitFactor: number;
+
+  @ApiProperty({ example: 42.5 })
+  totalFees: number;
 }
 
 export class BacktestResultDto {
