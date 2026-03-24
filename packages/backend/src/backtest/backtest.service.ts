@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   StrategyDSL,
   BacktestResult,
@@ -16,6 +16,8 @@ const INITIAL_CAPITAL = 10000;
 
 @Injectable()
 export class BacktestService {
+  private readonly logger = new Logger(BacktestService.name);
+
   constructor(
     private readonly marketData: MarketDataService,
     private readonly indicators: IndicatorsService,
@@ -143,6 +145,20 @@ export class BacktestService {
       let expr = condition
         .replace(/\band\b/gi, '&&')
         .replace(/\bor\b/gi, '||');
+
+      // Detect undeclared variables before eval
+      const usedVars = expr.match(/\b[a-z_][a-z_0-9]*\b/gi) ?? [];
+      const knownVars = new Set(Object.keys(vars));
+      const jsKeywords = new Set(['true', 'false', 'null', 'undefined', 'and', 'or']);
+      for (const v of usedVars) {
+        const lower = v.toLowerCase();
+        if (!knownVars.has(lower) && !jsKeywords.has(lower) && isNaN(Number(v))) {
+          this.logger.warn(
+            `Condition "${condition}" uses undeclared indicator "${v}". Add "${v}" to the indicator block in your strategy DSL.`,
+          );
+          return false;
+        }
+      }
 
       // Replace known variables (longest first to avoid partial matches)
       const varNames = Object.keys(vars).sort(
