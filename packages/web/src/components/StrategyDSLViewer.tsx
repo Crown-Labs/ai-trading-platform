@@ -93,6 +93,38 @@ export default function StrategyDSLViewer({ strategy }: StrategyDSLViewerProps) 
         </div>
       </div>
 
+      {/* Short Entry / Exit (if present) */}
+      {(strategy.entry.short_condition?.length || strategy.exit.short_condition?.length) ? (
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          {strategy.entry.short_condition?.length ? (
+            <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-3">
+              <p className="text-orange-400 text-xs font-medium uppercase tracking-wider mb-2">Short Entry</p>
+              <div className="space-y-1">
+                {strategy.entry.short_condition.map((c, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
+                    <span className="text-gray-300 text-xs font-mono">{c}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : <div />}
+          {strategy.exit.short_condition?.length ? (
+            <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-3">
+              <p className="text-orange-400 text-xs font-medium uppercase tracking-wider mb-2">Short Exit</p>
+              <div className="space-y-1">
+                {strategy.exit.short_condition.map((c, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
+                    <span className="text-gray-300 text-xs font-mono">{c}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : <div />}
+        </div>
+      ) : null}
+
       {/* Risk Parameters */}
       <div className="border-t border-dark-700 pt-3">
         <div className="grid grid-cols-5 gap-2 text-center">

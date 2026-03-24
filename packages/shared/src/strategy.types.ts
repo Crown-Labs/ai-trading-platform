@@ -24,9 +24,11 @@ export interface StrategyDSL {
   };
   entry: {
     condition: string[];
+    short_condition?: string[];
   };
   exit: {
     condition: string[];
+    short_condition?: string[];
   };
   risk: {
     stop_loss: number;
