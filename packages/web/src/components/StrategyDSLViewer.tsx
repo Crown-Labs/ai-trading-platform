@@ -67,63 +67,68 @@ export default function StrategyDSLViewer({ strategy }: StrategyDSLViewerProps) 
         </div>
       </div>
 
-      {/* Entry / Exit */}
+      {/* Entry / Exit — always show all 4 cards */}
       <div className="grid grid-cols-2 gap-3 mb-4">
+        {/* Long Entry */}
         <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
-          <p className="text-green-400 text-xs font-medium uppercase tracking-wider mb-2">Entry</p>
+          <p className="text-green-400 text-xs font-medium uppercase tracking-wider mb-2">
+            Long Entry
+          </p>
           <div className="space-y-1">
-            {strategy.entry.condition.map((c, i) => (
+            {strategy.entry.condition.length > 0 ? strategy.entry.condition.map((c, i) => (
               <div key={i} className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
                 <span className="text-gray-300 text-xs font-mono">{c}</span>
               </div>
-            ))}
+            )) : <span className="text-gray-600 text-xs">—</span>}
           </div>
         </div>
+
+        {/* Long Exit */}
         <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-3">
-          <p className="text-red-400 text-xs font-medium uppercase tracking-wider mb-2">Exit</p>
+          <p className="text-red-400 text-xs font-medium uppercase tracking-wider mb-2">
+            Long Exit
+          </p>
           <div className="space-y-1">
-            {strategy.exit.condition.map((c, i) => (
+            {strategy.exit.condition.length > 0 ? strategy.exit.condition.map((c, i) => (
               <div key={i} className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
                 <span className="text-gray-300 text-xs font-mono">{c}</span>
               </div>
-            ))}
+            )) : <span className="text-gray-600 text-xs">—</span>}
+          </div>
+        </div>
+
+        {/* Short Entry */}
+        <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-3">
+          <p className="text-orange-400 text-xs font-medium uppercase tracking-wider mb-2">
+            Short Entry
+          </p>
+          <div className="space-y-1">
+            {strategy.entry.short_condition?.length ? strategy.entry.short_condition.map((c, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
+                <span className="text-gray-300 text-xs font-mono">{c}</span>
+              </div>
+            )) : <span className="text-gray-600 text-xs">—</span>}
+          </div>
+        </div>
+
+        {/* Short Exit */}
+        <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-3">
+          <p className="text-orange-400 text-xs font-medium uppercase tracking-wider mb-2">
+            Short Exit
+          </p>
+          <div className="space-y-1">
+            {strategy.exit.short_condition?.length ? strategy.exit.short_condition.map((c, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
+                <span className="text-gray-300 text-xs font-mono">{c}</span>
+              </div>
+            )) : <span className="text-gray-600 text-xs">—</span>}
           </div>
         </div>
       </div>
-
-      {/* Short Entry / Exit (if present) */}
-      {(strategy.entry.short_condition?.length || strategy.exit.short_condition?.length) ? (
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          {strategy.entry.short_condition?.length ? (
-            <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-3">
-              <p className="text-orange-400 text-xs font-medium uppercase tracking-wider mb-2">Short Entry</p>
-              <div className="space-y-1">
-                {strategy.entry.short_condition.map((c, i) => (
-                  <div key={i} className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
-                    <span className="text-gray-300 text-xs font-mono">{c}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : <div />}
-          {strategy.exit.short_condition?.length ? (
-            <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-3">
-              <p className="text-orange-400 text-xs font-medium uppercase tracking-wider mb-2">Short Exit</p>
-              <div className="space-y-1">
-                {strategy.exit.short_condition.map((c, i) => (
-                  <div key={i} className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
-                    <span className="text-gray-300 text-xs font-mono">{c}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : <div />}
-        </div>
-      ) : null}
 
       {/* Risk Parameters */}
       <div className="border-t border-dark-700 pt-3">
