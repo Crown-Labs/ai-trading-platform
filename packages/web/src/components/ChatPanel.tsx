@@ -315,7 +315,7 @@ Please analyze these results and suggest specific improvements to optimize the s
   };
 
   return (
-    <div className="card flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       <h2 className="text-lg font-bold text-white mb-4">Strategy Chat</h2>
 
       <div className="flex-1 overflow-y-auto space-y-3 mb-4 min-h-0">
