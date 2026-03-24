@@ -205,7 +205,7 @@ export class BacktestService {
           const effectiveEntry = entryPrice * (1 + slippage);
           const effectiveExit = currentPrice * (1 - slippage);
           const positionValue =
-            INITIAL_CAPITAL * risk.position_size * leverage;
+            INITIAL_CAPITAL * (risk.position_size / 100) * leverage;
           const fee = positionValue * commission * 2;
           const rawPnl =
             ((effectiveExit - effectiveEntry) / effectiveEntry) *
