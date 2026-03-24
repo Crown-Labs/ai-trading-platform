@@ -1,7 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { StrategyService } from './strategy.service';
-import { ParseStrategyDto, StrategyDSLDto } from '../dto';
+import { ParseStrategyDto, ParseStrategyResponseDto } from '../dto';
 
 @ApiTags('strategy')
 @Controller('strategy')
@@ -10,14 +10,21 @@ export class StrategyController {
 
   @Post('parse')
   @ApiOperation({
-    summary: 'Parse natural language into a Strategy DSL',
+    summary: 'Parse natural language into a Strategy DSL via AI',
   })
   @ApiResponse({
     status: 201,
     description: 'Strategy parsed successfully',
-    type: StrategyDSLDto,
+    type: ParseStrategyResponseDto,
   })
-  parseStrategy(@Body() dto: ParseStrategyDto): StrategyDSLDto {
-    return this.strategyService.parseFromText(dto.text) as any;
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input or AI could not produce valid strategy',
+  })
+  async parseStrategy(
+    @Body() dto: ParseStrategyDto,
+  ): Promise<ParseStrategyResponseDto> {
+    const strategy = await this.strategyService.parseFromText(dto.text);
+    return { strategy };
   }
 }
