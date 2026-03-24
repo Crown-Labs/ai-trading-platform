@@ -58,7 +58,7 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
   if (!yamlContent) return null;
 
   try {
-    // Try JSON first, fallback to YAML
+    // Try JSON first, fallback to YAML (support both formats)
     let raw: any;
     try {
       raw = JSON.parse(yamlContent);
