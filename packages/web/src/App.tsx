@@ -5,6 +5,7 @@ import StrategyDSLViewer from './components/StrategyDSLViewer';
 import BacktestStats from './components/BacktestStats';
 import BacktestChart from './components/BacktestChart';
 import TradeTable from './components/TradeTable';
+import BacktestHeatmap from './components/BacktestHeatmap';
 import { useChatSessions } from './hooks/useChatSessions';
 import { ChatSession } from './types/chat';
 
@@ -70,6 +71,7 @@ function App() {
                 {backtestResult && (
                   <>
                     <BacktestStats metrics={backtestResult.metrics} />
+                    <BacktestHeatmap trades={backtestResult.trades} />
                     {candles.length > 0 && (
                       <BacktestChart
                         candles={candles}
