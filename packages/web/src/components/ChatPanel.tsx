@@ -199,6 +199,9 @@ Please analyze these results and suggest specific improvements to optimize the s
           ...messagesWithRun,
           { role: 'assistant', content: 'Backtest failed. Please try again.' },
         ],
+        // preserve existing backtest data if run fails
+        backtestResult: session.backtestResult,
+        candles: session.candles,
       });
     } finally {
       setBacktestLoading(false);

@@ -49,7 +49,11 @@ export function useChatSessions() {
       setSessions((prev) =>
         prev.map((s) => {
           if (s.id !== id) return s;
-          const updated = { ...s, ...partial };
+          // Only overwrite keys that are explicitly provided (not undefined)
+          const filtered = Object.fromEntries(
+            Object.entries(partial).filter(([, v]) => v !== undefined),
+          );
+          const updated = { ...s, ...filtered };
           // Auto-title on first exchange (user + assistant)
           if (
             updated.messages.length === 2 &&
