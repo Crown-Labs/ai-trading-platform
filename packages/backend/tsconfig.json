@@ -1,10 +1,11 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
+    "baseUrl": "./src",
     "paths": {
-      "@ai-trading/shared": ["../shared/src/index.ts"],
-      "@ai-trading/shared/*": ["../shared/src/*"]
+      "@ai-trading/shared": ["../../shared/dist/index.js"],
+      "@ai-trading/shared/*": ["../../shared/dist/*"]
     },
+    "rootDir": "./src",
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,
