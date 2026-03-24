@@ -161,6 +161,7 @@ export default function ChatPanel({ session, onUpdate }: ChatPanelProps) {
       setStreamingText('');
 
       const strategy = parseStrategyFromResponse(fullText);
+      console.log('[ChatPanel] parseStrategy result:', strategy);
       onUpdate({
         messages: finalMessages,
         ...(strategy && { strategy }),
