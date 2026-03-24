@@ -33,7 +33,7 @@ function App() {
     <div className="min-h-screen bg-dark-900 flex flex-col">
       <Header />
 
-      <main className="flex-grow flex overflow-hidden">
+      <main className="flex overflow-hidden" style={{ height: 'calc(100vh - 64px)' }}>
         {/* Sidebar */}
         <div className="w-64 flex-shrink-0 bg-dark-800 border-r border-dark-700 p-4 overflow-y-auto">
           <ChatSidebar
@@ -46,7 +46,7 @@ function App() {
         </div>
 
         {/* Main content */}
-        <div className="flex-1 overflow-y-auto px-6 py-8">
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           <h1 className="text-3xl font-bold text-white mb-6">
             AI Strategy
             <span className="bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent">
@@ -55,9 +55,9 @@ function App() {
           </h1>
 
           {activeSession ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start h-full">
               {/* Left Column */}
-              <div className="lg:col-span-1 sticky top-6">
+              <div className="lg:col-span-1">
                 <ChatPanel
                   session={activeSession}
                   onUpdate={handleUpdate}
