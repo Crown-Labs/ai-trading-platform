@@ -55,9 +55,9 @@ function App() {
           </h1>
 
           {activeSession ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
               {/* Left Column */}
-              <div className="lg:col-span-1">
+              <div className="lg:col-span-1 sticky top-6">
                 <ChatPanel
                   session={activeSession}
                   onUpdate={handleUpdate}

@@ -311,10 +311,10 @@ Please analyze these results and suggest specific improvements to optimize the s
   };
 
   return (
-    <div className="card flex flex-col h-full">
+    <div className="card flex flex-col" style={{ height: 'calc(100vh - 180px)' }}>
       <h2 className="text-lg font-bold text-white mb-4">Strategy Chat</h2>
 
-      <div className="flex-grow overflow-y-auto space-y-3 mb-4 min-h-[200px] max-h-[400px]">
+      <div className="flex-1 overflow-y-auto space-y-3 mb-4 min-h-0">
         {messages.length === 0 && !streamingText && (
           <p className="text-gray-500 text-sm">
             Describe your trading strategy in plain English...
