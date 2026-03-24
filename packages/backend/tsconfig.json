@@ -1,5 +1,10 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@ai-trading/shared": ["../shared/dist/index.js"],
+      "@ai-trading/shared/*": ["../shared/dist/*"]
+    },
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,
