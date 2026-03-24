@@ -10,12 +10,53 @@ interface ChatPanelProps {
   onUpdate: (partial: Partial<ChatSession>) => void;
 }
 
+function isStrategyYaml(yamlText: string): boolean {
+  return yamlText.includes('market:') &&
+    yamlText.includes('indicator:') &&
+    (yamlText.includes('entry:') || yamlText.includes('exit:'));
+}
+
+function extractStrategyYaml(text: string): string | null {
+  // Pattern 1: ```strategy fence
+  const strategyMatch = text.match(/```strategy\s*\n([\s\S]*?)```/);
+  if (strategyMatch) return strategyMatch[1];
+
+  // Pattern 2: ```yaml fence with strategy content
+  const yamlMatch = text.match(/```yaml\s*\n([\s\S]*?)```/);
+  if (yamlMatch && isStrategyYaml(yamlMatch[1])) return yamlMatch[1];
+
+  // Pattern 3: Plain YAML block (lines starting with strategy:/market: keys)
+  const lines = text.split('\n');
+  let blockLines: string[] = [];
+  let capturing = false;
+  for (const line of lines) {
+    if (!capturing && /^(strategy|market|name):/.test(line)) {
+      capturing = true;
+    }
+    if (capturing) {
+      if (line.trim() === '' && blockLines.length > 0) {
+        // Allow one blank line inside, but stop at two consecutive
+        const lastWasBlank = blockLines[blockLines.length - 1]?.trim() === '';
+        if (lastWasBlank) break;
+      }
+      if (capturing && line.trim() !== '' && !/^[\s#\-]/.test(line) && !/^\w[\w_]*:/.test(line)) {
+        break;
+      }
+      blockLines.push(line);
+    }
+  }
+  const block = blockLines.join('\n').trim();
+  if (block && isStrategyYaml(block)) return block;
+
+  return null;
+}
+
 function parseStrategyFromResponse(text: string): StrategyDSL | null {
-  const match = text.match(/```strategy\s*\n([\s\S]*?)```/);
-  if (!match) return null;
+  const yamlContent = extractStrategyYaml(text);
+  if (!yamlContent) return null;
 
   try {
-    const raw = YAML.parse(match[1]);
+    const raw = YAML.parse(yamlContent);
 
     // Support both flat format { name, market, ... }
     // and nested format { strategy: { name }, market, ... }
@@ -308,12 +349,14 @@ Please analyze these results and suggest specific improvements to optimize the s
   };
 
   const renderContent = (text: string) => {
-    const parts = text.split(/(```strategy\s*\n[\s\S]*?```)/);
+    const parts = text.split(/(```(?:strategy|yaml)\s*\n[\s\S]*?```)/);
     return (
       <>
         {parts.map((part, i) => {
-          if (part.startsWith('```strategy')) {
-            const code = part.replace(/```strategy\s*\n/, '').replace(/```$/, '');
+          const isStrategyBlock = part.startsWith('```strategy');
+          const isYamlStrategyBlock = part.startsWith('```yaml') && isStrategyYaml(part);
+          if (isStrategyBlock || isYamlStrategyBlock) {
+            const code = part.replace(/```(?:strategy|yaml)\s*\n/, '').replace(/```$/, '');
             return (
               <pre
                 key={i}
