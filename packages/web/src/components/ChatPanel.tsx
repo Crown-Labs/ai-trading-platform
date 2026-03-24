@@ -78,11 +78,22 @@ export default function ChatPanel({ session, onUpdate }: ChatPanelProps) {
     { label: '3Y', months: 36 },
   ];
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
 
   const messages = session.messages;
 
+  const handleScroll = () => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const threshold = 50;
+    isAtBottomRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - threshold;
+  };
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isAtBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, streamingText]);
 
   const handleRunBacktest = async () => {
@@ -367,7 +378,7 @@ Please analyze these results and suggest specific improvements to optimize the s
     <div className="flex flex-col h-full overflow-hidden">
       <h2 className="text-lg font-bold text-white mb-4">Strategy Chat</h2>
 
-      <div className="flex-1 overflow-y-auto space-y-3 mb-4 min-h-0">
+      <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto space-y-3 mb-4 min-h-0">
         {messages.length === 0 && !streamingText && (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
             <div className="w-12 h-12 rounded-full bg-primary-500/10 border border-primary-500/20 flex items-center justify-center mb-3">
