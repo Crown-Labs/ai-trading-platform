@@ -185,7 +185,7 @@ export default function BacktestHeatmap({ trades }: BacktestHeatmapProps) {
           <div className="bg-dark-800 border border-dark-600 rounded-lg px-3 py-2 text-xs shadow-xl whitespace-nowrap">
             <p className="text-gray-300 font-medium mb-0.5">{tooltip.day.date}</p>
             <p className={`font-semibold ${tooltip.day.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {tooltip.day.pnl >= 0 ? '+' : ''}${tooltip.day.pnl.toFixed(2)}
+              {tooltip.day.pnl >= 0 ? '+' : '−'}${Math.abs(tooltip.day.pnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
             <p className="text-gray-500 text-xs">
               {tooltip.day.trades} trade{tooltip.day.trades !== 1 ? 's' : ''}

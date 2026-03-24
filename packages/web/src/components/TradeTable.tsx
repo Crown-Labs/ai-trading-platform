@@ -106,7 +106,7 @@ export default function TradeTable({ trades }: TradeTableProps) {
                     trade.isWin ? 'text-green-400' : 'text-red-400'
                   }`}
                 >
-                  ${trade.pnl.toFixed(2)}
+                  {trade.pnl >= 0 ? '+' : '−'}${Math.abs(trade.pnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 <td
                   className={`py-2 px-2 text-right font-medium text-xs ${
@@ -144,7 +144,7 @@ export default function TradeTable({ trades }: TradeTableProps) {
                     totalPnl >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}
                 >
-                  {totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)}
+                  {totalPnl >= 0 ? '+' : '−'}${Math.abs(totalPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
             </tfoot>
