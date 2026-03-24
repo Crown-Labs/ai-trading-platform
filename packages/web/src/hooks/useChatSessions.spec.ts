@@ -1,253 +1,210 @@
-/**
- * Tests for useChatSessions hook
- * Issues #3 (Trading UI sessions) and #8 (Multi-chat sessions)
- *
- * Since this hook uses React state (useState, useCallback, useEffect),
- * we test the underlying logic by extracting and testing the functions directly,
- * and testing the hook behavior through its exported API.
- */
-
+import { renderHook, act } from '@testing-library/react';
+import { useChatSessions } from './useChatSessions';
 import { ChatSession } from '../types/chat';
-
-// Mock localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: jest.fn((key: string) => store[key] ?? null),
-    setItem: jest.fn((key: string, value: string) => {
-      store[key] = value;
-    }),
-    removeItem: jest.fn((key: string) => {
-      delete store[key];
-    }),
-    clear: jest.fn(() => {
-      store = {};
-    }),
-    get length() {
-      return Object.keys(store).length;
-    },
-    key: jest.fn((i: number) => Object.keys(store)[i] ?? null),
-    _getStore: () => store,
-  };
-})();
-
-Object.defineProperty(global, 'localStorage', { value: localStorageMock });
-
-// Mock crypto.randomUUID
-const mockUUID = jest.fn(() => '550e8400-e29b-41d4-a716-446655440000');
-Object.defineProperty(global, 'crypto', {
-  value: { randomUUID: mockUUID },
-});
 
 const STORAGE_KEY = 'ai-trading-sessions';
 
-describe('Issue #3 — Trading UI sessions', () => {
-  beforeEach(() => {
-    localStorageMock.clear();
-    jest.clearAllMocks();
-  });
+let store: Record<string, string> = {};
 
-  it('createSession returns session with unique id', () => {
-    const session: ChatSession = {
-      id: crypto.randomUUID(),
-      title: 'New Chat',
-      createdAt: new Date().toISOString(),
-      messages: [],
-    };
+beforeEach(() => {
+  store = {};
+  jest.spyOn(Storage.prototype, 'getItem').mockImplementation(
+    (key: string) => store[key] ?? null,
+  );
+  jest.spyOn(Storage.prototype, 'setItem').mockImplementation(
+    (key: string, value: string) => {
+      store[key] = value;
+    },
+  );
 
-    expect(session.id).toBeDefined();
-    expect(typeof session.id).toBe('string');
-    expect(session.id.length).toBeGreaterThan(0);
-    expect(session.title).toBe('New Chat');
-    expect(session.messages).toEqual([]);
-  });
-
-  it('selectSession changes activeSession concept', () => {
-    const sessions: ChatSession[] = [
-      { id: 'a', title: 'Chat A', createdAt: '2024-01-01', messages: [] },
-      { id: 'b', title: 'Chat B', createdAt: '2024-01-02', messages: [] },
-    ];
-
-    let activeId = 'a';
-    const selectSession = (id: string) => { activeId = id; };
-    selectSession('b');
-
-    const activeSession = sessions.find((s) => s.id === activeId);
-    expect(activeSession!.id).toBe('b');
-    expect(activeSession!.title).toBe('Chat B');
-  });
-
-  it('updateSession updates fields correctly', () => {
-    const sessions: ChatSession[] = [
-      { id: 'a', title: 'New Chat', createdAt: '2024-01-01', messages: [] },
-    ];
-
-    const updated = sessions.map((s) => {
-      if (s.id !== 'a') return s;
-      return { ...s, title: 'Updated Title' };
-    });
-
-    expect(updated[0].title).toBe('Updated Title');
-    expect(updated[0].id).toBe('a');
-    expect(updated[0].createdAt).toBe('2024-01-01');
-  });
-
-  it('deleteSession removes session', () => {
-    const sessions: ChatSession[] = [
-      { id: 'a', title: 'Chat A', createdAt: '2024-01-01', messages: [] },
-      { id: 'b', title: 'Chat B', createdAt: '2024-01-02', messages: [] },
-    ];
-
-    const after = sessions.filter((s) => s.id !== 'a');
-    expect(after).toHaveLength(1);
-    expect(after[0].id).toBe('b');
+  let counter = 0;
+  jest.spyOn(crypto, 'randomUUID').mockImplementation(() => {
+    counter += 1;
+    return `00000000-0000-4000-8000-00000000000${counter}` as ReturnType<typeof crypto.randomUUID>;
   });
 });
 
-describe('Issue #8 — Multi-chat sessions', () => {
-  beforeEach(() => {
-    localStorageMock.clear();
-    jest.clearAllMocks();
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
+function getSaved(): ChatSession[] {
+  const raw = store[STORAGE_KEY];
+  return raw ? JSON.parse(raw) : [];
+}
+
+/* ========================================================
+   Issue #3 — Trading UI sessions
+   ======================================================== */
+describe('Issue #3 — Trading UI sessions', () => {
+  it('createSession generates a unique id', () => {
+    const { result } = renderHook(() => useChatSessions());
+
+    let s1: ChatSession;
+    let s2: ChatSession;
+    act(() => { s1 = result.current.createSession(); });
+    act(() => { s2 = result.current.createSession(); });
+
+    expect(s1!.id).toBeDefined();
+    expect(s2!.id).toBeDefined();
+    expect(s1!.id).not.toBe(s2!.id);
+    expect(result.current.sessions).toHaveLength(2);
   });
 
-  it('new session has UUID format', () => {
-    const uuid = crypto.randomUUID();
-    // UUID v4 format: 8-4-4-4-12
-    expect(uuid).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    );
+  it('selectSession changes the active session', () => {
+    const { result } = renderHook(() => useChatSessions());
+
+    let s1: ChatSession;
+    let s2: ChatSession;
+    act(() => { s1 = result.current.createSession(); });
+    act(() => { s2 = result.current.createSession(); });
+
+    expect(result.current.activeSession?.id).toBe(s2!.id);
+
+    act(() => { result.current.selectSession(s1!.id); });
+
+    expect(result.current.activeSession?.id).toBe(s1!.id);
+  });
+
+  it('updateSession updates session fields', () => {
+    const { result } = renderHook(() => useChatSessions());
+
+    let session: ChatSession;
+    act(() => { session = result.current.createSession(); });
+
+    act(() => {
+      result.current.updateSession(session!.id, { title: 'Renamed' });
+    });
+
+    const updated = result.current.sessions.find((s) => s.id === session!.id);
+    expect(updated?.title).toBe('Renamed');
+  });
+
+  it('deleteSession removes the session', () => {
+    const { result } = renderHook(() => useChatSessions());
+
+    let session: ChatSession;
+    act(() => { session = result.current.createSession(); });
+    expect(result.current.sessions).toHaveLength(1);
+
+    act(() => { result.current.deleteSession(session!.id); });
+
+    expect(result.current.sessions).toHaveLength(0);
+    expect(result.current.activeSession).toBeNull();
+  });
+});
+
+/* ========================================================
+   Issue #8 — Multi-chat sessions
+   ======================================================== */
+describe('Issue #8 — Multi-chat sessions', () => {
+  it('session ids follow UUID v4 format', () => {
+    jest.spyOn(crypto, 'randomUUID').mockRestore();
+
+    const { result } = renderHook(() => useChatSessions());
+    let session: ChatSession;
+    act(() => { session = result.current.createSession(); });
+
+    const uuidV4Re =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    expect(session!.id).toMatch(uuidV4Re);
   });
 
   it('sessions persist to localStorage', () => {
-    const sessions: ChatSession[] = [
-      { id: 'test-1', title: 'Test Chat', createdAt: '2024-01-01', messages: [] },
-    ];
+    const { result } = renderHook(() => useChatSessions());
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    act(() => { result.current.createSession(); });
 
-    const loaded = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-    expect(loaded).toHaveLength(1);
-    expect(loaded[0].id).toBe('test-1');
-    expect(loaded[0].title).toBe('Test Chat');
+    const saved = getSaved();
+    expect(saved).toHaveLength(1);
+    expect(saved[0].title).toBe('New Chat');
   });
 
-  it('auto-title from first message (max 35 chars + ellipsis)', () => {
-    const session: ChatSession = {
-      id: 'a',
-      title: 'New Chat',
-      createdAt: '2024-01-01',
-      messages: [],
-    };
+  it('auto-title is capped when content exceeds 35 characters', () => {
+    const { result } = renderHook(() => useChatSessions());
 
-    // Simulate adding user + assistant messages and auto-titling
-    const messages = [
-      { role: 'user' as const, content: 'Create a momentum strategy for BTC with RSI and EMA crossover' },
-      { role: 'assistant' as const, content: 'Here is a strategy...' },
-    ];
+    let session: ChatSession;
+    act(() => { session = result.current.createSession(); });
 
-    const updated = { ...session, messages };
+    const longMessage = 'A'.repeat(50);
+    act(() => {
+      result.current.updateSession(session!.id, {
+        messages: [
+          { role: 'user', content: longMessage },
+          { role: 'assistant', content: 'reply' },
+        ],
+      });
+    });
 
-    // Auto-title logic from the hook
-    if (
-      updated.messages.length === 2 &&
-      session.title === 'New Chat' &&
-      updated.messages[0].role === 'user'
-    ) {
-      const text = updated.messages[0].content;
-      updated.title = text.length > 35 ? text.slice(0, 35) + '...' : text;
-    }
-
-    expect(updated.title).toBe('Create a momentum strategy for BTC ...');
-    expect(updated.title.length).toBeLessThanOrEqual(38); // 35 + '...'
+    const updated = result.current.sessions.find((s) => s.id === session!.id)!;
+    expect(updated.title.length).toBeLessThanOrEqual(38);
+    expect(updated.title).toBe('A'.repeat(35) + '...');
   });
 
-  it('auto-title short message stays as-is', () => {
-    const session: ChatSession = {
-      id: 'b',
-      title: 'New Chat',
-      createdAt: '2024-01-01',
-      messages: [],
-    };
+  it('auto-title keeps short content as-is', () => {
+    const { result } = renderHook(() => useChatSessions());
 
-    const messages = [
-      { role: 'user' as const, content: 'Hello world' },
-      { role: 'assistant' as const, content: 'Hi!' },
-    ];
+    let session: ChatSession;
+    act(() => { session = result.current.createSession(); });
 
-    const updated = { ...session, messages };
+    act(() => {
+      result.current.updateSession(session!.id, {
+        messages: [
+          { role: 'user', content: 'Buy BTC' },
+          { role: 'assistant', content: 'Sure' },
+        ],
+      });
+    });
 
-    if (
-      updated.messages.length === 2 &&
-      session.title === 'New Chat' &&
-      updated.messages[0].role === 'user'
-    ) {
-      const text = updated.messages[0].content;
-      updated.title = text.length > 35 ? text.slice(0, 35) + '...' : text;
-    }
-
-    expect(updated.title).toBe('Hello world');
+    const updated = result.current.sessions.find((s) => s.id === session!.id)!;
+    expect(updated.title).toBe('Buy BTC');
   });
 
-  it('switching sessions restores previous state', () => {
-    const sessions: ChatSession[] = [
-      {
-        id: 'session-1',
-        title: 'Strategy Chat',
-        createdAt: '2024-01-01',
-        messages: [{ role: 'user', content: 'build me a strategy' }],
-      },
-      {
-        id: 'session-2',
-        title: 'Analysis Chat',
-        createdAt: '2024-01-02',
-        messages: [{ role: 'user', content: 'analyze my portfolio' }],
-      },
-    ];
+  it('switching sessions restores the correct state', () => {
+    const { result } = renderHook(() => useChatSessions());
 
-    // Save to storage
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    let s1: ChatSession;
+    let s2: ChatSession;
+    act(() => { s1 = result.current.createSession(); });
+    act(() => {
+      result.current.updateSession(s1!.id, {
+        messages: [{ role: 'user', content: 'Hello from s1' }],
+      });
+    });
+    act(() => { s2 = result.current.createSession(); });
+    act(() => {
+      result.current.updateSession(s2!.id, {
+        messages: [{ role: 'user', content: 'Hello from s2' }],
+      });
+    });
 
-    // Switch to session-2
-    let activeId = 'session-1';
-    activeId = 'session-2';
-    const active = sessions.find((s) => s.id === activeId)!;
+    expect(result.current.activeSession?.id).toBe(s2!.id);
+    expect(result.current.activeSession?.messages[0].content).toBe('Hello from s2');
 
-    expect(active.title).toBe('Analysis Chat');
-    expect(active.messages[0].content).toBe('analyze my portfolio');
+    act(() => { result.current.selectSession(s1!.id); });
+    expect(result.current.activeSession?.id).toBe(s1!.id);
+    expect(result.current.activeSession?.messages[0].content).toBe('Hello from s1');
 
-    // Switch back to session-1
-    activeId = 'session-1';
-    const restored = sessions.find((s) => s.id === activeId)!;
-    expect(restored.title).toBe('Strategy Chat');
-    expect(restored.messages[0].content).toBe('build me a strategy');
+    act(() => { result.current.selectSession(s2!.id); });
+    expect(result.current.activeSession?.id).toBe(s2!.id);
+    expect(result.current.activeSession?.messages[0].content).toBe('Hello from s2');
   });
 
-  it('multiple sessions maintain independent state', () => {
-    const sessions: ChatSession[] = [
+  it('loads sessions from localStorage on mount', () => {
+    const seed: ChatSession[] = [
       {
-        id: 'a',
-        title: 'Session A',
-        createdAt: '2024-01-01',
-        messages: [{ role: 'user', content: 'msg A' }],
-        strategy: {
-          name: 'strat_a',
-          market: { exchange: 'binance', symbol: 'BTCUSDT', timeframe: '1h' },
-          indicator: { rsi: 14 },
-          entry: { condition: ['rsi < 30'] },
-          exit: { condition: ['rsi > 70'] },
-          risk: { stop_loss: 3, take_profit: 8, position_size: 10 },
-        },
-      },
-      {
-        id: 'b',
-        title: 'Session B',
-        createdAt: '2024-01-02',
-        messages: [{ role: 'user', content: 'msg B' }],
+        id: 'seed-1',
+        title: 'Saved Chat',
+        createdAt: new Date().toISOString(),
+        messages: [{ role: 'user', content: 'persisted' }],
       },
     ];
+    store[STORAGE_KEY] = JSON.stringify(seed);
 
-    expect(sessions[0].strategy).toBeDefined();
-    expect(sessions[1].strategy).toBeUndefined();
-    expect(sessions[0].messages[0].content).not.toBe(sessions[1].messages[0].content);
+    const { result } = renderHook(() => useChatSessions());
+
+    expect(result.current.sessions).toHaveLength(1);
+    expect(result.current.sessions[0].title).toBe('Saved Chat');
+    expect(result.current.activeSession?.id).toBe('seed-1');
   });
 });
