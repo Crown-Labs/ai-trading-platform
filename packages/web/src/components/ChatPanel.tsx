@@ -89,8 +89,14 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
         ema_fast: parsed.indicator?.ema_fast,
         ema_slow: parsed.indicator?.ema_slow,
       },
-      entry: { condition: parsed.entry.condition },
-      exit: { condition: parsed.exit.condition },
+      entry: {
+        condition: parsed.entry.condition,
+        ...(parsed.entry.short_condition?.length && { short_condition: parsed.entry.short_condition }),
+      },
+      exit: {
+        condition: parsed.exit.condition,
+        ...(parsed.exit.short_condition?.length && { short_condition: parsed.exit.short_condition }),
+      },
       risk: {
         stop_loss: parsed.risk.stop_loss,
         take_profit: parsed.risk.take_profit,
