@@ -25,28 +25,29 @@ function extractStrategyYaml(text: string): string | null {
   const yamlMatch = text.match(/```yaml\s*\n([\s\S]*?)```/);
   if (yamlMatch && isStrategyYaml(yamlMatch[1])) return yamlMatch[1];
 
-  // Pattern 3: Plain YAML block (lines starting with strategy:/market: keys)
-  const lines = text.split('\n');
-  let blockLines: string[] = [];
-  let capturing = false;
-  for (const line of lines) {
-    if (!capturing && /^(strategy|market|name):/.test(line)) {
-      capturing = true;
-    }
-    if (capturing) {
-      if (line.trim() === '' && blockLines.length > 0) {
-        // Allow one blank line inside, but stop at two consecutive
-        const lastWasBlank = blockLines[blockLines.length - 1]?.trim() === '';
-        if (lastWasBlank) break;
+  // Pattern 3: Plain YAML block starting with 'strategy:' anywhere in text
+  const strategyIdx = text.indexOf('strategy:');
+  if (strategyIdx !== -1) {
+    const yamlText = text.substring(strategyIdx);
+    const lines = yamlText.split('\n');
+    const blockLines: string[] = [];
+    let consecutiveBlanks = 0;
+    for (const line of lines) {
+      if (line.trim() === '') {
+        consecutiveBlanks++;
+        if (consecutiveBlanks >= 2) break;
+        blockLines.push(line);
+        continue;
       }
-      if (capturing && line.trim() !== '' && !/^[\s#\-]/.test(line) && !/^\w[\w_]*:/.test(line)) {
+      consecutiveBlanks = 0;
+      if (blockLines.length > 0 && !/^[\s#\-"']/.test(line) && !/^\w[\w_]*:/.test(line)) {
         break;
       }
       blockLines.push(line);
     }
+    const block = blockLines.join('\n').trim();
+    if (block && isStrategyYaml(block)) return block;
   }
-  const block = blockLines.join('\n').trim();
-  if (block && isStrategyYaml(block)) return block;
 
   return null;
 }
