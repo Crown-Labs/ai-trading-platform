@@ -176,6 +176,8 @@ Please analyze these results and suggest specific improvements to optimize the s
           }
 
           setStreamingText('');
+          // Parse new strategy suggestion from AI analysis response
+          const suggestedStrategy = parseStrategyFromResponse(fullText);
           onUpdate({
             messages: [
               ...messagesWithRun,
@@ -183,6 +185,8 @@ Please analyze these results and suggest specific improvements to optimize the s
             ],
             backtestResult,
             candles,
+            // Update strategy if AI suggested a new one in the analysis
+            ...(suggestedStrategy && { strategy: suggestedStrategy }),
           });
         }
       }
