@@ -23,7 +23,8 @@ export class BacktestService {
     private readonly indicators: IndicatorsService,
   ) {}
 
-  async runBacktest(strategy: StrategyDSL): Promise<BacktestResult> {
+  async runBacktest(inputStrategy: StrategyDSL): Promise<BacktestResult> {
+    const strategy = this.preprocessDSL(inputStrategy);
     const startTime = strategy.startDate ? new Date(strategy.startDate).getTime() : undefined;
     const endTime = strategy.endDate ? new Date(strategy.endDate).getTime() : undefined;
     const candles = await this.marketData.getCandles(
@@ -112,6 +113,83 @@ export class BacktestService {
     return { strategy, trades, metrics };
   }
 
+  private extractVariables(conditions: string[]): Set<string> {
+    const vars = new Set<string>();
+    const KNOWN_VARS = [
+      'rsi', 'ema_fast', 'ema_slow', 'sma', 'adx', 'atr',
+      'macd', 'macd_signal', 'macd_histogram',
+      'bb_upper', 'bb_middle', 'bb_lower',
+      'stoch_k', 'stoch_d',
+      'close', 'volume',
+    ];
+    for (const cond of conditions) {
+      for (const v of KNOWN_VARS) {
+        if (new RegExp(`\\b${v}\\b`).test(cond)) {
+          vars.add(v);
+        }
+      }
+      const crossMatches = cond.match(/cross(?:over|under)\((\w+),\s*(\w+)\)/gi);
+      if (crossMatches) {
+        crossMatches.forEach((m) => {
+          const args = m.match(/\((\w+),\s*(\w+)\)/);
+          if (args) {
+            vars.add(args[1]);
+            vars.add(args[2]);
+          }
+        });
+      }
+    }
+    return vars;
+  }
+
+  private preprocessDSL(strategy: StrategyDSL): StrategyDSL {
+    const allConditions = [
+      ...(strategy.entry?.condition ?? []),
+      ...(strategy.exit?.condition ?? []),
+    ];
+    const usedVars = this.extractVariables(allConditions);
+    const ind = { ...(strategy.indicator ?? {}) };
+
+    const defaults: Record<string, number> = {
+      rsi: 14,
+      ema_fast: 20,
+      ema_slow: 200,
+      sma: 50,
+      adx: 14,
+      atr: 14,
+    };
+
+    for (const [key, defaultPeriod] of Object.entries(defaults)) {
+      if (usedVars.has(key) && (ind as any)[key] == null) {
+        this.logger.log(`Auto-injecting missing indicator: ${key}=${defaultPeriod}`);
+        (ind as any)[key] = defaultPeriod;
+      }
+    }
+
+    if (
+      (usedVars.has('macd') || usedVars.has('macd_signal') || usedVars.has('macd_histogram')) &&
+      !ind.macd
+    ) {
+      this.logger.log('Auto-injecting missing indicator: macd={fast:12,slow:26,signal:9}');
+      ind.macd = { fast: 12, slow: 26, signal: 9 };
+    }
+
+    if (
+      (usedVars.has('bb_upper') || usedVars.has('bb_middle') || usedVars.has('bb_lower')) &&
+      !ind.bbands
+    ) {
+      this.logger.log('Auto-injecting missing indicator: bbands={period:20,stddev:2}');
+      ind.bbands = { period: 20, stddev: 2 };
+    }
+
+    if ((usedVars.has('stoch_k') || usedVars.has('stoch_d')) && !ind.stoch) {
+      this.logger.log('Auto-injecting missing indicator: stoch={kPeriod:14,dPeriod:3}');
+      ind.stoch = { kPeriod: 14, dPeriod: 3 };
+    }
+
+    return { ...strategy, indicator: ind };
+  }
+
   private evaluateCondition(
     condition: string,
     indicators: Record<string, number[]>,
@@ -145,20 +223,6 @@ export class BacktestService {
       let expr = condition
         .replace(/\band\b/gi, '&&')
         .replace(/\bor\b/gi, '||');
-
-      // Detect undeclared variables before eval
-      const usedVars = expr.match(/\b[a-z_][a-z_0-9]*\b/gi) ?? [];
-      const knownVars = new Set(Object.keys(vars));
-      const jsKeywords = new Set(['true', 'false', 'null', 'undefined', 'and', 'or']);
-      for (const v of usedVars) {
-        const lower = v.toLowerCase();
-        if (!knownVars.has(lower) && !jsKeywords.has(lower) && isNaN(Number(v))) {
-          this.logger.warn(
-            `Condition "${condition}" uses undeclared indicator "${v}". Add "${v}" to the indicator block in your strategy DSL.`,
-          );
-          return false;
-        }
-      }
 
       // Replace known variables (longest first to avoid partial matches)
       const varNames = Object.keys(vars).sort(
