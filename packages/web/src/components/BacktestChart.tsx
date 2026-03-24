@@ -56,6 +56,13 @@ export default function BacktestChart({
       month: 'short',
       day: 'numeric',
     }),
+    fullTime: new Date(c.timestamp).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
     price: c.close,
     timestamp: c.timestamp,
   }));
@@ -115,9 +122,12 @@ export default function BacktestChart({
                 border: '1px solid #334155',
                 borderRadius: '8px',
               }}
-              labelStyle={{ color: '#94a3b8' }}
+              labelStyle={{ color: '#94a3b8', fontSize: 11 }}
               itemStyle={{ color: '#e2e8f0' }}
               formatter={(v) => [`$${Number(v).toLocaleString()}`, 'Price']}
+              labelFormatter={(_, payload) =>
+                payload?.[0]?.payload?.fullTime ?? ''
+              }
             />
             <Line
               type="monotone"
