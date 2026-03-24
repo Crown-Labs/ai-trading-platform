@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { StrategyDSL } from '@ai-trading/shared';
 import YAML from 'yaml';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { ChatSession, ChatMessage } from '../types/chat';
 
 interface ChatPanelProps {
@@ -294,24 +296,69 @@ Please analyze these results and suggest specific improvements to optimize the s
 
   const renderContent = (text: string) => {
     const parts = text.split(/(```strategy\s*\n[\s\S]*?```)/);
-    return parts.map((part, i) => {
-      if (part.startsWith('```strategy')) {
-        const code = part.replace(/```strategy\s*\n/, '').replace(/```$/, '');
-        return (
-          <pre
-            key={i}
-            className="bg-dark-900 border border-primary-500/30 rounded-lg p-3 mt-2 mb-2 text-primary-300 text-xs overflow-x-auto"
-          >
-            <code>{code}</code>
-          </pre>
-        );
-      }
-      return (
-        <span key={i} className="whitespace-pre-wrap">
-          {part}
-        </span>
-      );
-    });
+    return (
+      <>
+        {parts.map((part, i) => {
+          if (part.startsWith('```strategy')) {
+            const code = part.replace(/```strategy\s*\n/, '').replace(/```$/, '');
+            return (
+              <pre
+                key={i}
+                className="bg-dark-900 border border-primary-500/30 rounded-lg p-3 mt-2 mb-2 text-primary-300 text-xs overflow-x-auto"
+              >
+                <code>{code}</code>
+              </pre>
+            );
+          }
+          return (
+            <ReactMarkdown
+              key={i}
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h1: ({ children }) => <h1 className="text-white font-bold text-base mt-3 mb-1">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-white font-bold text-sm mt-3 mb-1">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-gray-200 font-semibold text-sm mt-2 mb-1">{children}</h3>,
+                p: ({ children }) => <p className="text-gray-200 text-sm mb-2 leading-relaxed">{children}</p>,
+                strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
+                em: ({ children }) => <em className="text-gray-300 italic">{children}</em>,
+                ul: ({ children }) => <ul className="list-disc list-inside text-gray-300 text-sm space-y-0.5 mb-2 pl-2">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal list-inside text-gray-300 text-sm space-y-0.5 mb-2 pl-2">{children}</ol>,
+                li: ({ children }) => <li className="text-gray-300 text-sm">{children}</li>,
+                code: ({ children, className }) => {
+                  const isBlock = className?.includes('language-');
+                  return isBlock ? (
+                    <pre className="bg-dark-900 rounded-lg p-3 text-xs text-gray-300 overflow-x-auto my-2">
+                      <code>{children}</code>
+                    </pre>
+                  ) : (
+                    <code className="bg-dark-900 text-primary-300 text-xs px-1.5 py-0.5 rounded">{children}</code>
+                  );
+                },
+                table: ({ children }) => (
+                  <div className="overflow-x-auto my-2">
+                    <table className="w-full text-xs border-collapse">{children}</table>
+                  </div>
+                ),
+                thead: ({ children }) => <thead>{children}</thead>,
+                tbody: ({ children }) => <tbody>{children}</tbody>,
+                tr: ({ children }) => <tr className="border-b border-dark-600">{children}</tr>,
+                th: ({ children }) => <th className="text-left text-gray-400 font-medium py-1.5 px-2 bg-dark-700/50">{children}</th>,
+                td: ({ children }) => <td className="text-gray-300 py-1.5 px-2">{children}</td>,
+                blockquote: ({ children }) => (
+                  <blockquote className="border-l-2 border-primary-500 pl-3 my-2 text-gray-400 italic text-sm">{children}</blockquote>
+                ),
+                hr: () => <hr className="border-dark-600 my-3" />,
+                a: ({ href, children }) => (
+                  <a href={href} className="text-primary-400 underline hover:text-primary-300" target="_blank" rel="noreferrer">{children}</a>
+                ),
+              }}
+            >
+              {part}
+            </ReactMarkdown>
+          );
+        })}
+      </>
+    );
   };
 
   return (
