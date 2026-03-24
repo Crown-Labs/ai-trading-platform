@@ -1,5 +1,5 @@
 import { Trade } from '@ai-trading/shared';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 interface BacktestHeatmapProps {
   trades: Trade[];
@@ -29,6 +29,12 @@ function getColorClass(day: DayData | undefined): string {
 }
 
 export default function BacktestHeatmap({ trades }: BacktestHeatmapProps) {
+  const [tooltip, setTooltip] = useState<{
+    x: number;
+    y: number;
+    day: DayData;
+  } | null>(null);
+
   const { dayMap, weeks, monthLabels } = useMemo(() => {
     const dayMap: Record<string, DayData> = {};
 
@@ -135,22 +141,18 @@ export default function BacktestHeatmap({ trades }: BacktestHeatmapProps) {
                 return (
                   <div
                     key={weekIdx}
-                    className={`w-3 h-3 rounded-sm ${colorClass} cursor-pointer transition-opacity hover:opacity-70 relative group`}
-                    title={
-                      day
-                        ? `${dateStr}: ${day.trades} trade(s), P&L: $${day.pnl.toFixed(2)}`
-                        : dateStr ?? ''
-                    }
-                  >
-                    {day && (
-                      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-dark-800 border border-dark-600 rounded px-2 py-1 text-xs whitespace-nowrap z-10 hidden group-hover:block shadow-lg">
-                        <p className="text-gray-300 font-medium">{dateStr}</p>
-                        <p className={day.pnl >= 0 ? 'text-green-400' : 'text-red-400'}>
-                          ${day.pnl.toFixed(2)} ({day.trades} trade{day.trades > 1 ? 's' : ''})
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                    className={`w-3 h-3 rounded-sm ${colorClass} cursor-pointer transition-all hover:scale-125 hover:ring-1 hover:ring-white/30`}
+                    onMouseEnter={(e) => {
+                      if (!day) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setTooltip({
+                        x: rect.left + rect.width / 2,
+                        y: rect.top,
+                        day,
+                      });
+                    }}
+                    onMouseLeave={() => setTooltip(null)}
+                  />
                 );
               })}
             </div>
@@ -170,6 +172,28 @@ export default function BacktestHeatmap({ trades }: BacktestHeatmapProps) {
         <div className="w-3 h-3 rounded-sm bg-green-400" />
         <span className="text-xs text-gray-600 ml-1">More</span>
       </div>
+
+      {tooltip && (
+        <div
+          className="fixed z-50 pointer-events-none"
+          style={{
+            left: tooltip.x,
+            top: tooltip.y - 8,
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          <div className="bg-dark-800 border border-dark-600 rounded-lg px-3 py-2 text-xs shadow-xl whitespace-nowrap">
+            <p className="text-gray-300 font-medium mb-0.5">{tooltip.day.date}</p>
+            <p className={`font-semibold ${tooltip.day.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {tooltip.day.pnl >= 0 ? '+' : ''}${tooltip.day.pnl.toFixed(2)}
+            </p>
+            <p className="text-gray-500 text-xs">
+              {tooltip.day.trades} trade{tooltip.day.trades !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-dark-600" />
+        </div>
+      )}
     </div>
   );
 }
