@@ -61,11 +61,12 @@ function App() {
                   session={activeSession}
                   onUpdate={handleUpdate}
                 />
-                {strategy && <StrategyDSLViewer strategy={strategy} />}
               </div>
 
               {/* Right Column */}
               <div className="lg:col-span-2 space-y-6">
+                {strategy && <StrategyDSLViewer strategy={strategy} />}
+
                 {backtestResult && (
                   <>
                     <BacktestStats metrics={backtestResult.metrics} />
@@ -79,7 +80,7 @@ function App() {
                   </>
                 )}
 
-                {!backtestResult && (
+                {!strategy && !backtestResult && (
                   <div className="card text-center py-20">
                     <p className="text-gray-500 text-lg mb-2">
                       No backtest results yet
