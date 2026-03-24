@@ -61,6 +61,7 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
 export default function ChatPanel({ session, onUpdate }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [backtestLoading, setBacktestLoading] = useState(false);
   const [streamingText, setStreamingText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -72,9 +73,20 @@ export default function ChatPanel({ session, onUpdate }: ChatPanelProps) {
 
   const handleRunBacktest = async () => {
     const strategy = session.strategy;
-    if (!strategy) return;
+    if (!strategy || backtestLoading) return;
+
+    setBacktestLoading(true);
+
+    // 1. Add user message
+    const runMessage: ChatMessage = {
+      role: 'user',
+      content: `Run backtest for strategy: ${strategy.name}`,
+    };
+    const messagesWithRun = [...messages, runMessage];
+    onUpdate({ messages: messagesWithRun });
 
     try {
+      // 2. Run backtest
       const res = await fetch('http://localhost:4000/api/backtest/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,9 +99,83 @@ export default function ChatPanel({ session, onUpdate }: ChatPanelProps) {
       );
       const candles = candleRes.ok ? await candleRes.json() : [];
 
+      // 3. Update charts
       onUpdate({ backtestResult, candles });
+
+      // 4. Send backtest results to AI for analysis
+      const mt = backtestResult.metrics;
+      const analysisRequest = `Backtest complete for "${strategy.name}". Here are the results:
+
+Performance Metrics:
+- Total Return: ${mt.totalReturn.toFixed(2)}%
+- Win Rate: ${mt.winRate.toFixed(1)}%
+- Sharpe Ratio: ${mt.sharpeRatio.toFixed(2)}
+- Max Drawdown: ${mt.maxDrawdown.toFixed(2)}%
+- Profit Factor: ${mt.profitFactor.toFixed(2)}
+- Total Trades: ${mt.totalTrades}
+
+Please analyze these results and suggest specific improvements to optimize the strategy.`;
+
+      const messagesForAI: ChatMessage[] = [
+        ...messagesWithRun,
+        { role: 'user', content: analysisRequest },
+      ];
+
+      setStreamingText('');
+
+      const aiRes = await fetch('http://localhost:4000/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: messagesForAI.map((m) => ({ role: m.role, content: m.content })),
+          sessionId: session.id,
+        }),
+      });
+
+      if (aiRes.ok) {
+        const reader = aiRes.body?.getReader();
+        if (reader) {
+          const decoder = new TextDecoder();
+          let fullText = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            for (const line of chunk.split('\n')) {
+              if (!line.startsWith('data: ')) continue;
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta?.content;
+                if (delta) {
+                  fullText += delta;
+                  setStreamingText(fullText);
+                }
+              } catch { /* skip */ }
+            }
+          }
+
+          setStreamingText('');
+          onUpdate({
+            messages: [
+              ...messagesWithRun,
+              { role: 'assistant', content: fullText },
+            ],
+          });
+        }
+      }
     } catch (err) {
       console.error('Backtest failed:', err);
+      onUpdate({
+        messages: [
+          ...messagesWithRun,
+          { role: 'assistant', content: 'Backtest failed. Please try again.' },
+        ],
+      });
+    } finally {
+      setBacktestLoading(false);
     }
   };
 
@@ -273,8 +359,12 @@ export default function ChatPanel({ session, onUpdate }: ChatPanelProps) {
       </div>
 
       {session.strategy && (
-        <button onClick={handleRunBacktest} className="btn-primary mt-3 w-full">
-          Run Backtest
+        <button
+          onClick={handleRunBacktest}
+          disabled={backtestLoading}
+          className="btn-primary mt-3 w-full disabled:opacity-50"
+        >
+          {backtestLoading ? 'Running Backtest...' : 'Run Backtest'}
         </button>
       )}
     </div>
