@@ -276,7 +276,6 @@ Please analyze these results and suggest specific improvements to optimize the s
       setStreamingText('');
 
       const strategy = parseStrategyFromResponse(fullText);
-      console.log('[ChatPanel] parseStrategy result:', strategy);
       onUpdate({
         messages: finalMessages,
         ...(strategy && { strategy }),
