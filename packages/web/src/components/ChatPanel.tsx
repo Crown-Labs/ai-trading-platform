@@ -173,8 +173,8 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
       );
       const candles = candleRes.ok ? await candleRes.json() : [];
 
-      // 3. Update charts + create versioned run
-      onUpdate({ backtestResult, candles });
+      // 3. Save candles in session (in-memory) + create versioned run
+      onUpdate({ candles });
 
       if (onAddRun) {
         const version = (session.backtestRuns?.length ?? 0) + 1;
