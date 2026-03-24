@@ -58,7 +58,13 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
   if (!yamlContent) return null;
 
   try {
-    const raw = YAML.parse(yamlContent);
+    // Try JSON first, fallback to YAML
+    let raw: any;
+    try {
+      raw = JSON.parse(yamlContent);
+    } catch {
+      raw = YAML.parse(yamlContent);
+    }
 
     // Support both flat format { name, market, ... }
     // and nested format { strategy: { name }, market, ... }
