@@ -1,71 +1,125 @@
+import { useState } from 'react';
 import { StrategyDSL } from '@ai-trading/shared';
+import YAML from 'yaml';
 
 interface StrategyDSLViewerProps {
   strategy: StrategyDSL;
 }
 
 export default function StrategyDSLViewer({ strategy }: StrategyDSLViewerProps) {
+  const [copied, setCopied] = useState(false);
+
   const indicators = [
-    strategy.indicator.rsi && `RSI(${strategy.indicator.rsi})`,
-    strategy.indicator.ema_fast && `EMA Fast(${strategy.indicator.ema_fast})`,
-    strategy.indicator.ema_slow && `EMA Slow(${strategy.indicator.ema_slow})`,
-  ].filter(Boolean);
+    strategy.indicator?.rsi != null && `RSI(${strategy.indicator.rsi})`,
+    strategy.indicator?.ema_fast != null && `EMA(${strategy.indicator.ema_fast})`,
+    strategy.indicator?.ema_slow != null && `EMA(${strategy.indicator.ema_slow})`,
+  ].filter(Boolean) as string[];
+
+  const handleCopy = () => {
+    const yaml = YAML.stringify({
+      strategy: { name: strategy.name },
+      market: strategy.market,
+      indicator: strategy.indicator,
+      entry: strategy.entry,
+      exit: strategy.exit,
+      risk: strategy.risk,
+      ...(strategy.execution && { execution: strategy.execution }),
+    });
+    navigator.clipboard.writeText(yaml);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
-    <div className="card mt-4">
-      <h2 className="text-lg font-bold text-white mb-4">Strategy DSL</h2>
-      <div className="space-y-3 text-sm">
-        <div className="flex justify-between">
-          <span className="text-gray-400">Name</span>
-          <span className="text-white font-medium">{strategy.name}</span>
+    <div className="card">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-primary-400 uppercase tracking-wider">Strategy DSL</span>
         </div>
-        <div className="border-t border-dark-700" />
-        <div className="flex justify-between">
-          <span className="text-gray-400">Symbol</span>
-          <span className="text-white">{strategy.market.symbol}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-400">Exchange</span>
-          <span className="text-white">{strategy.market.exchange}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-400">Timeframe</span>
-          <span className="text-white">{strategy.market.timeframe}</span>
-        </div>
-        <div className="border-t border-dark-700" />
-        <div className="flex justify-between">
-          <span className="text-gray-400">Indicators</span>
-          <span className="text-white">{indicators.join(', ')}</span>
-        </div>
-        <div className="border-t border-dark-700" />
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 text-xs px-3 py-1 rounded-md bg-dark-700 hover:bg-dark-600 text-gray-400 hover:text-white transition-colors"
+        >
+          {copied ? (
+            <>&#10003; <span>Copied</span></>
+          ) : (
+            <>&#9112; <span>Copy</span></>
+          )}
+        </button>
+      </div>
+
+      {/* Strategy Name */}
+      <h3 className="text-white font-semibold text-base mb-3">{strategy.name}</h3>
+
+      {/* Market + Indicators row */}
+      <div className="flex items-start justify-between mb-4">
         <div>
-          <span className="text-gray-400 block mb-1">Entry Conditions</span>
-          {strategy.entry.condition.map((c, i) => (
-            <span key={i} className="inline-block bg-green-500/10 text-green-400 text-xs px-2 py-1 rounded mr-1 mb-1">
-              {c}
+          <p className="text-white font-medium">{strategy.market.symbol}</p>
+          <p className="text-gray-500 text-xs mt-0.5">{strategy.market.exchange} &middot; {strategy.market.timeframe}</p>
+        </div>
+        <div className="flex flex-wrap gap-1 justify-end max-w-[55%]">
+          {indicators.map((ind) => (
+            <span key={ind} className="text-xs bg-primary-500/10 text-primary-400 px-2 py-0.5 rounded-full border border-primary-500/20">
+              {ind}
             </span>
           ))}
         </div>
-        <div>
-          <span className="text-gray-400 block mb-1">Exit Conditions</span>
-          {strategy.exit.condition.map((c, i) => (
-            <span key={i} className="inline-block bg-red-500/10 text-red-400 text-xs px-2 py-1 rounded mr-1 mb-1">
-              {c}
-            </span>
-          ))}
+      </div>
+
+      {/* Entry / Exit */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
+          <p className="text-green-400 text-xs font-medium uppercase tracking-wider mb-2">Entry</p>
+          <div className="space-y-1">
+            {strategy.entry.condition.map((c, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
+                <span className="text-gray-300 text-xs font-mono">{c}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="border-t border-dark-700" />
-        <div className="flex justify-between">
-          <span className="text-gray-400">Stop Loss</span>
-          <span className="text-red-400">{strategy.risk.stop_loss}%</span>
+        <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-3">
+          <p className="text-red-400 text-xs font-medium uppercase tracking-wider mb-2">Exit</p>
+          <div className="space-y-1">
+            {strategy.exit.condition.map((c, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+                <span className="text-gray-300 text-xs font-mono">{c}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex justify-between">
-          <span className="text-gray-400">Take Profit</span>
-          <span className="text-green-400">{strategy.risk.take_profit}%</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-400">Position Size</span>
-          <span className="text-white">{strategy.risk.position_size}</span>
+      </div>
+
+      {/* Risk Parameters */}
+      <div className="border-t border-dark-700 pt-3">
+        <div className="grid grid-cols-5 gap-2 text-center">
+          <div>
+            <p className="text-gray-500 text-xs mb-1">SL</p>
+            <p className="text-red-400 text-sm font-semibold">{strategy.risk.stop_loss}%</p>
+          </div>
+          <div>
+            <p className="text-gray-500 text-xs mb-1">TP</p>
+            <p className="text-green-400 text-sm font-semibold">{strategy.risk.take_profit}%</p>
+          </div>
+          <div>
+            <p className="text-gray-500 text-xs mb-1">Size</p>
+            <p className="text-white text-sm font-semibold">{strategy.risk.position_size}%</p>
+          </div>
+          <div>
+            <p className="text-gray-500 text-xs mb-1">Leverage</p>
+            <p className="text-white text-sm font-semibold">{strategy.execution?.leverage ?? 1}&times;</p>
+          </div>
+          <div>
+            <p className="text-gray-500 text-xs mb-1">Fee</p>
+            <p className="text-white text-sm font-semibold">
+              {strategy.execution?.commission != null
+                ? `${(strategy.execution.commission * 100).toFixed(2)}%`
+                : '0.10%'}
+            </p>
+          </div>
         </div>
       </div>
     </div>
