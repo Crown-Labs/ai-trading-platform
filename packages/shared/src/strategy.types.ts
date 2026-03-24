@@ -15,6 +15,12 @@ export interface StrategyDSL {
     rsi?: number;
     ema_fast?: number;
     ema_slow?: number;
+    sma?: number;
+    macd?: { fast: number; slow: number; signal: number };
+    bbands?: { period: number; stddev: number };
+    stoch?: { kPeriod: number; dPeriod: number };
+    atr?: number;
+    adx?: number;
   };
   entry: {
     condition: string[];

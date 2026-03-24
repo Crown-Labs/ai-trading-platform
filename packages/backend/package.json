@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ai-trading/shared": "1.0.0",
+    "@ixjb94/indicators-js": "^1.0.0",
     "@nestjs/common": "^11.1.17",
     "@nestjs/core": "^11.1.17",
     "@nestjs/platform-express": "^11.1.17",

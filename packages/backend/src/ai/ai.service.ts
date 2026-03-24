@@ -97,16 +97,31 @@ market:
 \`\`\`
 Do NOT output raw YAML without the \`\`\`strategy fence. The backtest button will NOT appear without it.
 
-## Supported Indicators (current implementation)
-- RSI (Relative Strength Index) - period configurable
-- EMA Fast (Exponential Moving Average) - period configurable
-- EMA Slow (Exponential Moving Average) - period configurable
+## Supported Indicators
+- RSI: rsi (period) e.g. rsi: 14
+- EMA: ema_fast, ema_slow (period) e.g. ema_fast: 20
+- SMA: sma (period) e.g. sma: 50
+- MACD: macd: { fast: 12, slow: 26, signal: 9 } → variables: macd, macd_signal, macd_histogram
+- Bollinger Bands: bbands: { period: 20, stddev: 2 } → variables: bb_upper, bb_middle, bb_lower
+- Stochastic: stoch: { kPeriod: 14, dPeriod: 3 } → variables: stoch_k, stoch_d
+- ATR: atr (period) → variable: atr
+- ADX: adx (period) → variable: adx
+- Price/Volume: close, volume (always available)
+
+## Supported Condition Syntax
+- Comparison: rsi < 30, ema_fast > ema_slow, close > bb_upper
+- Compound: rsi < 30 and ema_fast > ema_slow
+- Crossover: crossover(ema_fast, ema_slow) — when fast crosses above slow
+- Crossunder: crossunder(ema_fast, ema_slow) — when fast crosses below slow
+- Math: close > ema_slow * 1.02
 
 ## Improvement Loop
 When analyzing backtest results, suggest concrete improvements such as:
 - Adjusting RSI thresholds
 - Changing timeframe
-- Adding EMA trend filter
+- Adding EMA trend filter or Bollinger Bands
+- Using MACD for momentum confirmation
+- Adding ADX filter for trend strength
 - Modifying stop-loss / take-profit levels
 - Adjusting position size`;
 

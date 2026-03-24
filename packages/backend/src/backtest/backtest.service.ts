@@ -33,6 +33,8 @@ export class BacktestService {
     );
 
     const closes = candles.map((c) => c.close);
+    const highs = candles.map((c) => c.high);
+    const lows = candles.map((c) => c.low);
     const indicatorValues: Record<string, number[]> = {};
 
     if (strategy.indicator.rsi) {
@@ -53,6 +55,40 @@ export class BacktestService {
         strategy.indicator.ema_slow,
       );
     }
+    if (strategy.indicator.sma) {
+      indicatorValues['sma'] = this.indicators.calculateSMA(
+        closes,
+        strategy.indicator.sma,
+      );
+    }
+    if (strategy.indicator.macd) {
+      const m = strategy.indicator.macd;
+      const result = this.indicators.calculateMACD(closes, m.fast, m.slow, m.signal);
+      indicatorValues['macd'] = result.macd;
+      indicatorValues['macd_signal'] = result.signal;
+      indicatorValues['macd_histogram'] = result.histogram;
+    }
+    if (strategy.indicator.bbands) {
+      const b = strategy.indicator.bbands;
+      const result = this.indicators.calculateBBands(closes, b.period, b.stddev ?? 2);
+      indicatorValues['bb_upper'] = result.upper;
+      indicatorValues['bb_middle'] = result.middle;
+      indicatorValues['bb_lower'] = result.lower;
+    }
+    if (strategy.indicator.stoch) {
+      const s = strategy.indicator.stoch;
+      const result = this.indicators.calculateStoch(highs, lows, closes, s.kPeriod ?? 14, s.dPeriod ?? 3);
+      indicatorValues['stoch_k'] = result.k;
+      indicatorValues['stoch_d'] = result.d;
+    }
+    if (strategy.indicator.atr) {
+      indicatorValues['atr'] = this.indicators.calculateATR(highs, lows, closes, strategy.indicator.atr);
+    }
+    if (strategy.indicator.adx) {
+      indicatorValues['adx'] = this.indicators.calculateADX(highs, lows, strategy.indicator.adx);
+    }
+    indicatorValues['close'] = closes;
+    indicatorValues['volume'] = candles.map((c) => c.volume);
 
     const commission = strategy.execution?.commission ?? DEFAULT_COMMISSION;
     const slippage = strategy.execution?.slippage ?? DEFAULT_SLIPPAGE;
@@ -80,6 +116,21 @@ export class BacktestService {
     index: number,
   ): boolean {
     try {
+      // Handle crossover(a, b) and crossunder(a, b) patterns
+      const crossMatch = condition.match(
+        /cross(over|under)\((\w+),\s*(\w+)\)/i,
+      );
+      if (crossMatch) {
+        const type = crossMatch[1].toLowerCase();
+        const a = indicators[crossMatch[2]];
+        const b = indicators[crossMatch[3]];
+        if (!a || !b) return false;
+        if (type === 'over')
+          return this.indicators.isCrossover(a, b, index);
+        if (type === 'under')
+          return this.indicators.isCrossunder(a, b, index);
+      }
+
       // Build vars object with all indicator values at this index
       const vars: Record<string, number> = {};
       for (const [key, values] of Object.entries(indicators)) {
@@ -94,50 +145,20 @@ export class BacktestService {
         .replace(/\bor\b/gi, '||');
 
       // Replace known variables (longest first to avoid partial matches)
-      const varNames = Object.keys(vars).sort((a, b) => b.length - a.length);
+      const varNames = Object.keys(vars).sort(
+        (a, b) => b.length - a.length,
+      );
       for (const name of varNames) {
-        expr = expr.replace(new RegExp(`\\b${name}\\b`, 'g'), String(vars[name]));
+        expr = expr.replace(
+          new RegExp(`\\b${name}\\b`, 'g'),
+          String(vars[name]),
+        );
       }
 
       // Safe eval using Function
       return new Function(`"use strict"; return (${expr});`)() as boolean;
     } catch {
       return false;
-    }
-
-    // Legacy fallback (unreachable but kept for reference)
-    const match = condition.match(
-      /(\w+)\s*(>|<|>=|<=|==)\s*(\w+(?:\.\d+)?)/,
-    );
-    if (!match) return false;
-
-    const [, left, operator, right] = match;
-
-    const leftVal = indicators[left]?.[index];
-    if (leftVal === undefined || isNaN(leftVal)) return false;
-
-    let rightVal: number;
-    if (indicators[right]) {
-      rightVal = indicators[right][index];
-      if (rightVal === undefined || isNaN(rightVal)) return false;
-    } else {
-      rightVal = parseFloat(right);
-      if (isNaN(rightVal)) return false;
-    }
-
-    switch (operator) {
-      case '>':
-        return leftVal > rightVal;
-      case '<':
-        return leftVal < rightVal;
-      case '>=':
-        return leftVal >= rightVal;
-      case '<=':
-        return leftVal <= rightVal;
-      case '==':
-        return leftVal === rightVal;
-      default:
-        return false;
     }
   }
 

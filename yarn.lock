@@ -409,6 +409,11 @@
   resolved "https://registry.npmjs.org/@inquirer/type/-/type-3.0.10.tgz#11ed564ec78432a200ea2601a212d24af8150d50"
   integrity sha512-BvziSRxfz5Ov8ch0z/n3oijRSEcEsHnhggm4xFZe93DHcUCTlutlq9Ox4SVENAfcRD22UQq7T/atg9Wr3k09eA==
 
+"@ixjb94/indicators-js@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@ixjb94/indicators-js/-/indicators-js-1.0.0.tgz#d4f9aef8cd16fd40089148fca4cba0f6b7253052"
+  integrity sha512-YFotQTy4E25lMkGyYT4FNBa0h0Mkt06Nt9/NlWtVC4D8cBoZkPaBTLvxQ2xny2k8eOSAepjrQ6vDgBSE1uO0nw==
+
 "@jridgewell/gen-mapping@^0.3.2", "@jridgewell/gen-mapping@^0.3.5":
   version "0.3.13"
   resolved "https://registry.npmjs.org/@jridgewell/gen-mapping/-/gen-mapping-0.3.13.tgz#6342a19f44347518c93e43b1ac69deb3c4656a1f"
