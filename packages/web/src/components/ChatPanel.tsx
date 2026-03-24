@@ -85,9 +85,8 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
         timeframe: parsed.market.timeframe,
       },
       indicator: {
-        rsi: parsed.indicator?.rsi,
-        ema_fast: parsed.indicator?.ema_fast,
-        ema_slow: parsed.indicator?.ema_slow,
+        // pass all indicator fields through — backend handles all types
+        ...parsed.indicator,
       },
       entry: {
         condition: parsed.entry.condition,
