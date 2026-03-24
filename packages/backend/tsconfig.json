@@ -1,11 +1,5 @@
 {
   "compilerOptions": {
-    "baseUrl": "./src",
-    "paths": {
-      "@ai-trading/shared": ["../../shared/dist/index.js"],
-      "@ai-trading/shared/*": ["../../shared/dist/*"]
-    },
-    "rootDir": "./src",
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,
@@ -15,6 +9,7 @@
     "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
+    "rootDir": "./src",
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": false,
