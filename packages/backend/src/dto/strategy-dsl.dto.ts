@@ -80,6 +80,11 @@ export class ParseStrategyDto {
   text: string;
 }
 
+export class ParseStrategyResponseDto {
+  @ApiProperty({ type: StrategyDSLDto })
+  strategy: StrategyDSLDto;
+}
+
 export class RunBacktestDto {
   @ApiProperty({ type: StrategyDSLDto })
   strategy: StrategyDSLDto;

@@ -274,6 +274,20 @@ Please analyze these results and suggest specific improvements to optimize the s
     setLoading(true);
     setStreamingText('');
 
+    // Fire strategy parse in parallel (non-blocking)
+    void fetch('http://localhost:4000/api/strategy/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: userMessage }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.strategy) {
+          onUpdate({ strategy: data.strategy });
+        }
+      })
+      .catch(() => { /* Ignore — chat-based fallback still runs */ });
+
     try {
       const res = await fetch('http://localhost:4000/api/ai/chat', {
         method: 'POST',
