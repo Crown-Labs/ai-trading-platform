@@ -70,12 +70,14 @@ export default function BacktestChart({
   const entryDots = trades.map((t) => ({
     timestamp: new Date(t.entryTime).getTime(),
     price: t.entryPrice,
+    side: t.side,
   }));
 
   const exitDots = trades.map((t) => ({
     timestamp: new Date(t.exitTime).getTime(),
     price: t.exitPrice,
     isWin: t.isWin,
+    side: t.side,
   }));
 
   return (
@@ -141,15 +143,23 @@ export default function BacktestChart({
                 (d) => Math.abs(d.timestamp - dot.timestamp) < 1000 * 60 * 60 * 2,
               );
               if (idx < 0) return null;
+              // Long entry = green ▲, Short entry = orange ▼
+              const isShort = dot.side === 'short';
               return (
                 <ReferenceDot
                   key={`entry-${i}`}
                   x={chartData[idx].time}
                   y={dot.price}
                   r={5}
-                  fill="#22c55e"
-                  stroke="#16a34a"
+                  fill={isShort ? '#f97316' : '#22c55e'}
+                  stroke={isShort ? '#ea580c' : '#16a34a'}
                   strokeWidth={1}
+                  shape={(props: any) => {
+                    const { cx, cy } = props;
+                    return isShort
+                      ? <polygon points={`${cx},${cy+6} ${cx-5},${cy-4} ${cx+5},${cy-4}`} fill="#f97316" stroke="#ea580c" strokeWidth="1" />
+                      : <polygon points={`${cx},${cy-6} ${cx-5},${cy+4} ${cx+5},${cy+4}`} fill="#22c55e" stroke="#16a34a" strokeWidth="1" />;
+                  }}
                 />
               );
             })}
@@ -158,15 +168,27 @@ export default function BacktestChart({
                 (d) => Math.abs(d.timestamp - dot.timestamp) < 1000 * 60 * 60 * 2,
               );
               if (idx < 0) return null;
+              const isShort = dot.side === 'short';
+              const winColor = isShort ? '#22c55e' : '#22c55e';
+              const lossColor = '#ef4444';
+              const fill = dot.isWin ? winColor : lossColor;
+              const stroke = dot.isWin ? '#16a34a' : '#dc2626';
               return (
                 <ReferenceDot
                   key={`exit-${i}`}
                   x={chartData[idx].time}
                   y={dot.price}
                   r={5}
-                  fill={dot.isWin ? '#22c55e' : '#ef4444'}
-                  stroke={dot.isWin ? '#16a34a' : '#dc2626'}
+                  fill={fill}
+                  stroke={stroke}
                   strokeWidth={1}
+                  shape={(props: any) => {
+                    const { cx, cy } = props;
+                    // Long exit = ▼, Short exit = ▲
+                    return isShort
+                      ? <polygon points={`${cx},${cy-6} ${cx-5},${cy+4} ${cx+5},${cy+4}`} fill={fill} stroke={stroke} strokeWidth="1" />
+                      : <polygon points={`${cx},${cy+6} ${cx-5},${cy-4} ${cx+5},${cy-4}`} fill={fill} stroke={stroke} strokeWidth="1" />;
+                  }}
                 />
               );
             })}
@@ -174,18 +196,21 @@ export default function BacktestChart({
         </ResponsiveContainer>
       )}
 
-      <div className="flex gap-4 mt-2 text-xs text-gray-400">
+      <div className="flex gap-4 mt-2 text-xs text-gray-400 flex-wrap">
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-          Entry
+          <span className="text-green-500">▲</span> Long Entry
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
-          Exit (loss)
+          <span className="text-green-500">▼</span> Long Exit (win)
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-          Exit (win)
+          <span className="text-red-500">▼</span> Long Exit (loss)
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="text-orange-500">▼</span> Short Entry
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="text-green-500">▲</span> Short Exit (win)
         </span>
       </div>
     </div>
