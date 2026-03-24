@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { StrategyDSL } from '@ai-trading/shared';
+import { StrategyDSL, BacktestRun } from '@ai-trading/shared';
 import YAML from 'yaml';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -8,6 +8,7 @@ import { ChatSession, ChatMessage } from '../types/chat';
 interface ChatPanelProps {
   session: ChatSession;
   onUpdate: (partial: Partial<ChatSession>) => void;
+  onAddRun?: (run: BacktestRun) => void;
 }
 
 function isStrategyYaml(yamlText: string): boolean {
@@ -102,7 +103,7 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
   }
 }
 
-export default function ChatPanel({ session, onUpdate }: ChatPanelProps) {
+export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [backtestLoading, setBacktestLoading] = useState(false);
@@ -172,8 +173,23 @@ export default function ChatPanel({ session, onUpdate }: ChatPanelProps) {
       );
       const candles = candleRes.ok ? await candleRes.json() : [];
 
-      // 3. Update charts
+      // 3. Update charts + create versioned run
       onUpdate({ backtestResult, candles });
+
+      if (onAddRun) {
+        const version = (session.backtestRuns?.length ?? 0) + 1;
+        const run: BacktestRun = {
+          id: crypto.randomUUID(),
+          version,
+          strategyName: strategy.name,
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          strategy: strategyWithDates,
+          result: backtestResult,
+          createdAt: new Date().toISOString(),
+        };
+        onAddRun(run);
+      }
 
       // 4. Send backtest results to AI for analysis
       const mt = backtestResult.metrics;

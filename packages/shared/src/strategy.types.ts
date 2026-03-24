@@ -67,6 +67,17 @@ export interface BacktestResult {
   metrics: BacktestMetrics;
 }
 
+export interface BacktestRun {
+  id: string;
+  version: number;
+  strategyName: string;
+  startDate: string;
+  endDate: string;
+  strategy: StrategyDSL;
+  result: BacktestResult;
+  createdAt: string;
+}
+
 export interface OHLCVCandle {
   timestamp: number;
   open: number;
