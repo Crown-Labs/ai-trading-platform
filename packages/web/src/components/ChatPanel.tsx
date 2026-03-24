@@ -1,10 +1,62 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { StrategyDSL } from '@ai-trading/shared';
+import YAML from 'yaml';
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 interface ChatPanelProps {
   onStrategyParsed: (strategy: StrategyDSL) => void;
   onRunBacktest: () => void;
   strategy: StrategyDSL | null;
+}
+
+function parseStrategyFromResponse(text: string): StrategyDSL | null {
+  const match = text.match(/```strategy\s*\n([\s\S]*?)```/);
+  if (!match) return null;
+
+  try {
+    const parsed = YAML.parse(match[1]);
+
+    // Validate required fields
+    if (
+      !parsed.name ||
+      !parsed.market?.symbol ||
+      !parsed.market?.timeframe ||
+      !parsed.entry?.condition?.length ||
+      !parsed.exit?.condition?.length ||
+      parsed.risk?.stop_loss == null ||
+      parsed.risk?.take_profit == null ||
+      parsed.risk?.position_size == null
+    ) {
+      return null;
+    }
+
+    return {
+      name: parsed.name,
+      market: {
+        exchange: parsed.market.exchange || 'binance',
+        symbol: parsed.market.symbol,
+        timeframe: parsed.market.timeframe,
+      },
+      indicator: {
+        rsi: parsed.indicator?.rsi,
+        ema_fast: parsed.indicator?.ema_fast,
+        ema_slow: parsed.indicator?.ema_slow,
+      },
+      entry: { condition: parsed.entry.condition },
+      exit: { condition: parsed.exit.condition },
+      risk: {
+        stop_loss: parsed.risk.stop_loss,
+        take_profit: parsed.risk.take_profit,
+        position_size: parsed.risk.position_size,
+      },
+    };
+  } catch {
+    return null;
+  }
 }
 
 export default function ChatPanel({
@@ -14,41 +66,122 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState<
-    { role: 'user' | 'ai'; text: string }[]
-  >([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [streamingText, setStreamingText] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, streamingText]);
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
     const userMessage = input.trim();
-    setMessages((prev) => [...prev, { role: 'user', text: userMessage }]);
+    const newMessages: ChatMessage[] = [
+      ...messages,
+      { role: 'user', content: userMessage },
+    ];
+    setMessages(newMessages);
     setInput('');
     setLoading(true);
+    setStreamingText('');
 
     try {
-      const res = await fetch('http://localhost:4000/api/strategy/parse', {
+      const res = await fetch('http://localhost:4000/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: userMessage }),
+        body: JSON.stringify({
+          messages: newMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
       });
-      const data: StrategyDSL = await res.json();
-      onStrategyParsed(data);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'ai',
-          text: `Parsed strategy: "${data.name}"\n\nSymbol: ${data.market.symbol} | Timeframe: ${data.market.timeframe}\nEntry: ${data.entry.condition.join(', ')}\nExit: ${data.exit.condition.join(', ')}\nStop Loss: ${data.risk.stop_loss}% | Take Profit: ${data.risk.take_profit}%`,
-        },
-      ]);
+
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const decoder = new TextDecoder();
+      let fullText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const delta = parsed.choices?.[0]?.delta?.content;
+            if (delta) {
+              fullText += delta;
+              setStreamingText(fullText);
+            }
+          } catch {
+            // skip malformed chunks
+          }
+        }
+      }
+
+      // Finalize: add assistant message
+      const assistantMessage: ChatMessage = {
+        role: 'assistant',
+        content: fullText,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+      setStreamingText('');
+
+      // Try to parse strategy from response
+      const parsed = parseStrategyFromResponse(fullText);
+      if (parsed) {
+        onStrategyParsed(parsed);
+      }
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: 'ai', text: 'Failed to parse strategy. Is the backend running?' },
+        {
+          role: 'assistant',
+          content: 'Failed to get response. Is the backend running?',
+        },
       ]);
+      setStreamingText('');
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderContent = (text: string) => {
+    // Render strategy code blocks with special styling
+    const parts = text.split(/(```strategy\s*\n[\s\S]*?```)/);
+    return parts.map((part, i) => {
+      if (part.startsWith('```strategy')) {
+        const code = part.replace(/```strategy\s*\n/, '').replace(/```$/, '');
+        return (
+          <pre
+            key={i}
+            className="bg-dark-900 border border-primary-500/30 rounded-lg p-3 mt-2 mb-2 text-primary-300 text-xs overflow-x-auto"
+          >
+            <code>{code}</code>
+          </pre>
+        );
+      }
+      return (
+        <span key={i} className="whitespace-pre-wrap">
+          {part}
+        </span>
+      );
+    });
   };
 
   return (
@@ -56,7 +189,7 @@ export default function ChatPanel({
       <h2 className="text-lg font-bold text-white mb-4">Strategy Chat</h2>
 
       <div className="flex-grow overflow-y-auto space-y-3 mb-4 min-h-[200px] max-h-[400px]">
-        {messages.length === 0 && (
+        {messages.length === 0 && !streamingText && (
           <p className="text-gray-500 text-sm">
             Describe your trading strategy in plain English...
           </p>
@@ -73,14 +206,27 @@ export default function ChatPanel({
             <span className="font-medium text-xs text-gray-500 block mb-1">
               {msg.role === 'user' ? 'You' : 'AI'}
             </span>
-            <pre className="whitespace-pre-wrap font-sans">{msg.text}</pre>
+            <div className="font-sans">
+              {msg.role === 'assistant'
+                ? renderContent(msg.content)
+                : msg.content}
+            </div>
           </div>
         ))}
-        {loading && (
-          <div className="bg-dark-700 text-gray-400 p-3 rounded-lg text-sm mr-8">
-            Parsing strategy...
+        {streamingText && (
+          <div className="bg-dark-700 text-gray-300 p-3 rounded-lg text-sm mr-8">
+            <span className="font-medium text-xs text-gray-500 block mb-1">
+              AI
+            </span>
+            <div className="font-sans">{renderContent(streamingText)}</div>
           </div>
         )}
+        {loading && !streamingText && (
+          <div className="bg-dark-700 text-gray-400 p-3 rounded-lg text-sm mr-8">
+            Thinking...
+          </div>
+        )}
+        <div ref={messagesEndRef} />
       </div>
 
       <div className="flex gap-2">
@@ -107,10 +253,7 @@ export default function ChatPanel({
       </div>
 
       {strategy && (
-        <button
-          onClick={onRunBacktest}
-          className="btn-primary mt-3 w-full"
-        >
+        <button onClick={onRunBacktest} className="btn-primary mt-3 w-full">
           Run Backtest
         </button>
       )}
