@@ -63,6 +63,18 @@ export default function ChatPanel({ session, onUpdate }: ChatPanelProps) {
   const [loading, setLoading] = useState(false);
   const [backtestLoading, setBacktestLoading] = useState(false);
   const [streamingText, setStreamingText] = useState('');
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    endDate: new Date().toISOString().slice(0, 10),
+  });
+
+  const PRESETS = [
+    { label: '3M', months: 3 },
+    { label: '6M', months: 6 },
+    { label: '1Y', months: 12 },
+    { label: '2Y', months: 24 },
+    { label: '3Y', months: 36 },
+  ];
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const messages = session.messages;
@@ -87,15 +99,21 @@ export default function ChatPanel({ session, onUpdate }: ChatPanelProps) {
 
     try {
       // 2. Run backtest
+      const strategyWithDates = {
+        ...strategy,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      };
+
       const res = await fetch('http://localhost:4000/api/backtest/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ strategy }),
+        body: JSON.stringify({ strategy: strategyWithDates }),
       });
       const backtestResult = await res.json();
 
       const candleRes = await fetch(
-        `http://localhost:4000/api/market-data/candles?symbol=${strategy.market.symbol}&interval=${strategy.market.timeframe}&limit=500`,
+        `http://localhost:4000/api/market-data/candles?symbol=${strategy.market.symbol}&interval=${strategy.market.timeframe}&startTime=${new Date(dateRange.startDate).getTime()}&endTime=${new Date(dateRange.endDate).getTime()}`,
       );
       const candles = candleRes.ok ? await candleRes.json() : [];
 
@@ -361,13 +379,54 @@ Please analyze these results and suggest specific improvements to optimize the s
       </div>
 
       {session.strategy && (
-        <button
-          onClick={handleRunBacktest}
-          disabled={backtestLoading}
-          className="btn-primary mt-3 w-full disabled:opacity-50"
-        >
-          {backtestLoading ? 'Running Backtest...' : 'Run Backtest'}
-        </button>
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-gray-500">Range:</span>
+            {PRESETS.map((p) => {
+              const start = new Date();
+              start.setMonth(start.getMonth() - p.months);
+              const startStr = start.toISOString().slice(0, 10);
+              const isActive = dateRange.startDate === startStr;
+              return (
+                <button
+                  key={p.label}
+                  onClick={() => setDateRange({ startDate: startStr, endDate: new Date().toISOString().slice(0, 10) })}
+                  className={`text-xs px-2 py-1 rounded transition-colors ${
+                    isActive
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-dark-700 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex gap-2 items-center">
+            <input
+              type="date"
+              value={dateRange.startDate}
+              onChange={(e) => setDateRange((d) => ({ ...d, startDate: e.target.value }))}
+              className="flex-1 bg-dark-700 border border-dark-600 rounded px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-primary-500"
+            />
+            <span className="text-gray-600 text-xs">&rarr;</span>
+            <input
+              type="date"
+              value={dateRange.endDate}
+              onChange={(e) => setDateRange((d) => ({ ...d, endDate: e.target.value }))}
+              className="flex-1 bg-dark-700 border border-dark-600 rounded px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-primary-500"
+            />
+          </div>
+
+          <button
+            onClick={handleRunBacktest}
+            disabled={backtestLoading}
+            className="btn-primary w-full disabled:opacity-50"
+          >
+            {backtestLoading ? 'Running Backtest...' : 'Run Backtest'}
+          </button>
+        </div>
       )}
     </div>
   );

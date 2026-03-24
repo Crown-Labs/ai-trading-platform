@@ -22,9 +22,13 @@ export class BacktestService {
   ) {}
 
   async runBacktest(strategy: StrategyDSL): Promise<BacktestResult> {
+    const startTime = strategy.startDate ? new Date(strategy.startDate).getTime() : undefined;
+    const endTime = strategy.endDate ? new Date(strategy.endDate).getTime() : undefined;
     const candles = await this.marketData.getCandles(
       strategy.market.symbol,
       strategy.market.timeframe,
+      startTime,
+      endTime,
       500,
     );
 

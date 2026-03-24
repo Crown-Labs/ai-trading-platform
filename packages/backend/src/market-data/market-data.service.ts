@@ -6,21 +6,50 @@ export class MarketDataService {
   async getCandles(
     symbol: string,
     interval: string,
-    limit: number,
+    startTime?: number,
+    endTime?: number,
+    limit = 500,
   ): Promise<OHLCVCandle[]> {
-    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-    const response = await fetch(url);
-    const data = await response.json();
+    if (!startTime) {
+      const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      return this.parseCandles(data);
+    }
 
-    return data.map(
-      (k: (string | number)[]): OHLCVCandle => ({
-        timestamp: Number(k[0]),
-        open: parseFloat(k[1] as string),
-        high: parseFloat(k[2] as string),
-        low: parseFloat(k[3] as string),
-        close: parseFloat(k[4] as string),
-        volume: parseFloat(k[5] as string),
-      }),
-    );
+    const allCandles: OHLCVCandle[] = [];
+    let currentStart = startTime;
+    const batchLimit = 1000;
+
+    while (true) {
+      let url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&startTime=${currentStart}&limit=${batchLimit}`;
+      if (endTime) url += `&endTime=${endTime}`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) break;
+
+      const candles = this.parseCandles(data);
+      allCandles.push(...candles);
+
+      if (data.length < batchLimit) break;
+      if (endTime && candles[candles.length - 1].timestamp >= endTime) break;
+
+      currentStart = candles[candles.length - 1].timestamp + 1;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    return allCandles;
+  }
+
+  private parseCandles(data: any[]): OHLCVCandle[] {
+    return data.map((k: any[]) => ({
+      timestamp: k[0],
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low: parseFloat(k[3]),
+      close: parseFloat(k[4]),
+      volume: parseFloat(k[5]),
+    }));
   }
 }

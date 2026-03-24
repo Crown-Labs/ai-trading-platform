@@ -28,6 +28,8 @@ export interface StrategyDSL {
     position_size: number;
   };
   execution?: ExecutionParams;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface Trade {
