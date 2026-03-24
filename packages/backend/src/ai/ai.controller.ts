@@ -24,6 +24,6 @@ export class AiController {
     @Body() body: AiChatRequestDto,
     @Res() res: Response,
   ): Promise<void> {
-    await this.aiService.streamStrategyChat(body.messages, res);
+    await this.aiService.streamStrategyChat(body.messages, res, body.sessionId);
   }
 }

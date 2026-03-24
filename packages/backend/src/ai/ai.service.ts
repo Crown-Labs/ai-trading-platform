@@ -63,6 +63,7 @@ export class AiService {
   async streamStrategyChat(
     messages: ChatMessage[],
     res: Response,
+    sessionId?: string,
   ): Promise<void> {
     const fullMessages: ChatMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },
@@ -75,6 +76,7 @@ export class AiService {
       model: this.agentId,
       messages: fullMessages,
       stream: true,
+      ...(sessionId && { user: sessionId }),
     });
 
     this.logger.log(`Calling OpenClaw Gateway: ${url}`);

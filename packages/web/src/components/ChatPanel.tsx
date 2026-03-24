@@ -1,16 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { StrategyDSL } from '@ai-trading/shared';
 import YAML from 'yaml';
-
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
+import { ChatSession, ChatMessage } from '../types/chat';
 
 interface ChatPanelProps {
-  onStrategyParsed: (strategy: StrategyDSL) => void;
-  onRunBacktest: () => void;
-  strategy: StrategyDSL | null;
+  session: ChatSession;
+  onUpdate: (partial: Partial<ChatSession>) => void;
 }
 
 function parseStrategyFromResponse(text: string): StrategyDSL | null {
@@ -20,7 +15,6 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
   try {
     const parsed = YAML.parse(match[1]);
 
-    // Validate required fields
     if (
       !parsed.name ||
       !parsed.market?.symbol ||
@@ -59,20 +53,40 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
   }
 }
 
-export default function ChatPanel({
-  onStrategyParsed,
-  onRunBacktest,
-  strategy,
-}: ChatPanelProps) {
+export default function ChatPanel({ session, onUpdate }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streamingText, setStreamingText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const messages = session.messages;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingText]);
+
+  const handleRunBacktest = async () => {
+    const strategy = session.strategy;
+    if (!strategy) return;
+
+    try {
+      const res = await fetch('http://localhost:4000/api/backtest/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ strategy }),
+      });
+      const backtestResult = await res.json();
+
+      const candleRes = await fetch(
+        `http://localhost:4000/api/market-data/candles?symbol=${strategy.market.symbol}&interval=${strategy.market.timeframe}&limit=500`,
+      );
+      const candles = candleRes.ok ? await candleRes.json() : [];
+
+      onUpdate({ backtestResult, candles });
+    } catch (err) {
+      console.error('Backtest failed:', err);
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
@@ -82,7 +96,7 @@ export default function ChatPanel({
       ...messages,
       { role: 'user', content: userMessage },
     ];
-    setMessages(newMessages);
+    onUpdate({ messages: newMessages });
     setInput('');
     setLoading(true);
     setStreamingText('');
@@ -96,6 +110,7 @@ export default function ChatPanel({
             role: m.role,
             content: m.content,
           })),
+          sessionId: session.id,
         }),
       });
 
@@ -134,27 +149,27 @@ export default function ChatPanel({
         }
       }
 
-      // Finalize: add assistant message
-      const assistantMessage: ChatMessage = {
-        role: 'assistant',
-        content: fullText,
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+      const finalMessages: ChatMessage[] = [
+        ...newMessages,
+        { role: 'assistant', content: fullText },
+      ];
       setStreamingText('');
 
-      // Try to parse strategy from response
-      const parsed = parseStrategyFromResponse(fullText);
-      if (parsed) {
-        onStrategyParsed(parsed);
-      }
+      const strategy = parseStrategyFromResponse(fullText);
+      onUpdate({
+        messages: finalMessages,
+        ...(strategy && { strategy }),
+      });
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: 'Failed to get response. Is the backend running?',
-        },
-      ]);
+      onUpdate({
+        messages: [
+          ...newMessages,
+          {
+            role: 'assistant',
+            content: 'Failed to get response. Is the backend running?',
+          },
+        ],
+      });
       setStreamingText('');
     } finally {
       setLoading(false);
@@ -162,7 +177,6 @@ export default function ChatPanel({
   };
 
   const renderContent = (text: string) => {
-    // Render strategy code blocks with special styling
     const parts = text.split(/(```strategy\s*\n[\s\S]*?```)/);
     return parts.map((part, i) => {
       if (part.startsWith('```strategy')) {
@@ -252,8 +266,8 @@ export default function ChatPanel({
         </button>
       </div>
 
-      {strategy && (
-        <button onClick={onRunBacktest} className="btn-primary mt-3 w-full">
+      {session.strategy && (
+        <button onClick={handleRunBacktest} className="btn-primary mt-3 w-full">
           Run Backtest
         </button>
       )}

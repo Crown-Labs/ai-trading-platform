@@ -11,4 +11,7 @@ export class ChatMessageDto {
 export class AiChatRequestDto {
   @ApiProperty({ type: [ChatMessageDto] })
   messages: ChatMessageDto[];
+
+  @ApiProperty({ example: 'session-uuid', required: false })
+  sessionId?: string;
 }
