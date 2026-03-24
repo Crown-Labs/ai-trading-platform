@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "prebuild": "rm -f tsconfig.tsbuildinfo",
     "build": "nest build",
-    "dev": "nest start --watch --preserveWatchOutput",
+    "dev": "nest start --watch",
     "start": "node dist/main",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
@@ -12,10 +13,12 @@
   },
   "dependencies": {
     "@ai-trading/shared": "1.0.0",
+    "@ixjb94/indicators-js": "^1.0.0",
     "@nestjs/common": "^11.1.17",
     "@nestjs/core": "^11.1.17",
     "@nestjs/platform-express": "^11.1.17",
     "@nestjs/swagger": "^11.2.6",
+    "dotenv": "^17.3.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },

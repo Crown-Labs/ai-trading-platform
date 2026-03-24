@@ -2,10 +2,21 @@
   "name": "@ai-trading/shared",
   "version": "1.0.0",
   "private": true,
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
-    "build": "echo 'Shared build not configured yet'"
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublish": "tsc"
   },
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "typescript": "*"
+  }
 }
