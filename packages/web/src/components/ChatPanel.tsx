@@ -13,7 +13,11 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
   if (!match) return null;
 
   try {
-    const parsed = YAML.parse(match[1]);
+    const raw = YAML.parse(match[1]);
+
+    // Support both flat format { name, market, ... }
+    // and nested format { strategy: { name }, market, ... }
+    const parsed = raw.strategy ? { ...raw, name: raw.strategy.name ?? raw.name } : raw;
 
     if (
       !parsed.name ||
@@ -47,6 +51,7 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
         take_profit: parsed.risk.take_profit,
         position_size: parsed.risk.position_size,
       },
+      ...(parsed.execution && { execution: parsed.execution }),
     };
   } catch {
     return null;
