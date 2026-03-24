@@ -67,58 +67,45 @@ export default function StrategyDSLViewer({ strategy }: StrategyDSLViewerProps) 
         </div>
       </div>
 
-      {/* Conditions — compact badge + inline list */}
-      <div className="space-y-2 mb-4">
+      {/* Conditions — compact badge + inline */}
+      <div className="space-y-1.5 mb-4">
         {/* LONG row */}
-        <div className="flex items-start gap-2">
-          <span className="flex-shrink-0 mt-0.5 text-xs font-bold bg-green-500/20 text-green-400 px-2 py-0.5 rounded w-14 text-center">LONG</span>
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
-              {strategy.entry.condition.length > 0 ? (
-                strategy.entry.condition.map((c, i) => (
-                  <span key={i} className="text-xs text-gray-300 font-mono">
-                    <span className="text-green-500 mr-1">▲</span>{c}
-                  </span>
+        <div className="flex items-center gap-2">
+          <span className="flex-shrink-0 text-xs font-bold bg-green-500/20 text-green-400 px-2 py-0.5 rounded w-14 text-center">LONG</span>
+          <p className="text-xs text-gray-300 font-mono truncate">
+            {strategy.entry.condition.length > 0
+              ? strategy.entry.condition.map((c, i) => (
+                  <span key={i}><span className="text-green-500">▲</span>{c}{i < strategy.entry.condition.length - 1 ? ' & ' : ''}</span>
                 ))
-              ) : <span className="text-gray-600 text-xs">no entry</span>}
-              <span className="text-gray-700 text-xs">·</span>
-              {strategy.exit.condition.length > 0 ? (
-                strategy.exit.condition.map((c, i) => (
-                  <span key={i} className="text-xs text-gray-300 font-mono">
-                    <span className="text-red-500 mr-1">▼</span>{c}
-                  </span>
+              : <span className="text-gray-600">—</span>}
+            {strategy.entry.condition.length > 0 && strategy.exit.condition.length > 0 && (
+              <span className="text-gray-600 mx-2">·</span>
+            )}
+            {strategy.exit.condition.length > 0
+              ? strategy.exit.condition.map((c, i) => (
+                  <span key={i}><span className="text-red-500">▼</span>{c}{i < strategy.exit.condition.length - 1 ? ' & ' : ''}</span>
                 ))
-              ) : <span className="text-gray-600 text-xs">no exit</span>}
-            </div>
-          </div>
+              : null}
+          </p>
         </div>
 
         {/* SHORT row */}
-        <div className="flex items-start gap-2">
-          <span className="flex-shrink-0 mt-0.5 text-xs font-bold bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded w-14 text-center">SHORT</span>
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
-              {strategy.entry.short_condition?.length ? (
-                strategy.entry.short_condition.map((c, i) => (
-                  <span key={i} className="text-xs text-gray-300 font-mono">
-                    <span className="text-orange-500 mr-1">▲</span>{c}
-                  </span>
-                ))
-              ) : <span className="text-gray-600 text-xs">—</span>}
-              {strategy.entry.short_condition?.length ? (
-                <>
-                  <span className="text-gray-700 text-xs">·</span>
-                  {strategy.exit.short_condition?.length ? (
-                    strategy.exit.short_condition.map((c, i) => (
-                      <span key={i} className="text-xs text-gray-300 font-mono">
-                        <span className="text-orange-400 mr-1">▼</span>{c}
-                      </span>
-                    ))
-                  ) : <span className="text-gray-600 text-xs">no exit</span>}
-                </>
-              ) : null}
-            </div>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="flex-shrink-0 text-xs font-bold bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded w-14 text-center">SHORT</span>
+          <p className="text-xs text-gray-300 font-mono truncate">
+            {strategy.entry.short_condition?.length ? (
+              <>
+                {strategy.entry.short_condition.map((c, i) => (
+                  <span key={i}><span className="text-orange-500">▲</span>{c}{i < (strategy.entry.short_condition?.length ?? 0) - 1 ? ' & ' : ''}</span>
+                ))}
+                {strategy.exit.short_condition?.length && (
+                  <><span className="text-gray-600 mx-2">·</span>{strategy.exit.short_condition.map((c, i) => (
+                    <span key={i}><span className="text-orange-400">▼</span>{c}</span>
+                  ))}</>
+                )}
+              </>
+            ) : <span className="text-gray-600">—</span>}
+          </p>
         </div>
       </div>
 
