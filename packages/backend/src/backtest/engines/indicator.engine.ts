@@ -1,19 +1,46 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { OHLCVCandle, StrategyDSL } from '@ai-trading/shared';
 import { IndicatorsService } from '../../indicators/indicators.service';
+import { autoInjectIndicators } from './indicator-registry';
+
+export type IndicatorValues = Record<string, number[]>;
 
 @Injectable()
 export class IndicatorEngine {
+  private readonly logger = new Logger(IndicatorEngine.name);
+
   constructor(private readonly indicators: IndicatorsService) {}
+
+  /**
+   * Auto-detect indicators from conditions, inject defaults, then compute all.
+   */
+  autoCompute(
+    candles: OHLCVCandle[],
+    strategy: StrategyDSL,
+  ): { values: IndicatorValues; indicator: StrategyDSL['indicator'] } {
+    const indicator = autoInjectIndicators(strategy);
+
+    // Log auto-injected indicators
+    const original = strategy.indicator ?? {};
+    for (const key of Object.keys(indicator)) {
+      if ((original as any)[key] == null && (indicator as any)[key] != null) {
+        this.logger.log(
+          `Auto-injected indicator: ${key}=${JSON.stringify((indicator as any)[key])}`,
+        );
+      }
+    }
+
+    return { values: this.compute(candles, indicator), indicator };
+  }
 
   compute(
     candles: OHLCVCandle[],
     indicator: StrategyDSL['indicator'],
-  ): Record<string, number[]> {
+  ): IndicatorValues {
     const closes = candles.map((c) => c.close);
     const highs = candles.map((c) => c.high);
     const lows = candles.map((c) => c.low);
-    const values: Record<string, number[]> = {};
+    const values: IndicatorValues = {};
 
     if (indicator.rsi) {
       values['rsi'] = this.indicators.calculateRSI(closes, indicator.rsi);

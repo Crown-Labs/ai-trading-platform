@@ -30,25 +30,24 @@ export class BacktestService {
   ) {}
 
   async runBacktest(inputStrategy: StrategyDSL): Promise<BacktestResult> {
-    const strategy = this.preprocessDSL(inputStrategy);
-    const startTime = strategy.startDate
-      ? new Date(strategy.startDate).getTime()
+    const startTime = inputStrategy.startDate
+      ? new Date(inputStrategy.startDate).getTime()
       : undefined;
-    const endTime = strategy.endDate
-      ? new Date(strategy.endDate).getTime()
+    const endTime = inputStrategy.endDate
+      ? new Date(inputStrategy.endDate).getTime()
       : undefined;
     const candles = await this.marketData.getCandles(
-      strategy.market.symbol,
-      strategy.market.timeframe,
+      inputStrategy.market.symbol,
+      inputStrategy.market.timeframe,
       startTime,
       endTime,
       startTime ? undefined : 500,
     );
 
-    const indicatorValues = this.indicatorEngine.compute(
-      candles,
-      strategy.indicator,
-    );
+    // Auto-detect + inject missing indicators from conditions, then compute
+    const { values: indicatorValues, indicator } =
+      this.indicatorEngine.autoCompute(candles, inputStrategy);
+    const strategy = { ...inputStrategy, indicator };
 
     const execParams: ExecutionParams = {
       commission: strategy.execution?.commission ?? DEFAULT_COMMISSION,
@@ -69,102 +68,6 @@ export class BacktestService {
     const metrics = this.metricsEngine.calculate(trades);
 
     return { strategy, trades, metrics };
-  }
-
-  private extractVariables(conditions: string[]): Set<string> {
-    const vars = new Set<string>();
-    const KNOWN_VARS = [
-      'rsi', 'ema_fast', 'ema_slow', 'sma', 'adx', 'atr',
-      'macd', 'macd_signal', 'macd_histogram',
-      'bb_upper', 'bb_middle', 'bb_lower',
-      'stoch_k', 'stoch_d',
-      'close', 'volume',
-    ];
-    for (const cond of conditions) {
-      for (const v of KNOWN_VARS) {
-        if (new RegExp(`\\b${v}\\b`).test(cond)) {
-          vars.add(v);
-        }
-      }
-      const crossMatches = cond.match(
-        /cross(?:over|under)\((\w+),\s*(\w+)\)/gi,
-      );
-      if (crossMatches) {
-        crossMatches.forEach((m) => {
-          const args = m.match(/\((\w+),\s*(\w+)\)/);
-          if (args) {
-            vars.add(args[1]);
-            vars.add(args[2]);
-          }
-        });
-      }
-    }
-    return vars;
-  }
-
-  private preprocessDSL(strategy: StrategyDSL): StrategyDSL {
-    const allConditions = [
-      ...(strategy.entry?.condition ?? []),
-      ...(strategy.entry?.short_condition ?? []),
-      ...(strategy.exit?.condition ?? []),
-      ...(strategy.exit?.short_condition ?? []),
-    ];
-    const usedVars = this.extractVariables(allConditions);
-    const ind = { ...(strategy.indicator ?? {}) };
-
-    const defaults: Record<string, number> = {
-      rsi: 14,
-      ema_fast: 20,
-      ema_slow: 200,
-      sma: 50,
-      adx: 14,
-      atr: 14,
-    };
-
-    for (const [key, defaultPeriod] of Object.entries(defaults)) {
-      if (usedVars.has(key) && (ind as any)[key] == null) {
-        this.logger.log(
-          `Auto-injecting missing indicator: ${key}=${defaultPeriod}`,
-        );
-        (ind as any)[key] = defaultPeriod;
-      }
-    }
-
-    if (
-      (usedVars.has('macd') ||
-        usedVars.has('macd_signal') ||
-        usedVars.has('macd_histogram')) &&
-      !ind.macd
-    ) {
-      this.logger.log(
-        'Auto-injecting missing indicator: macd={fast:12,slow:26,signal:9}',
-      );
-      ind.macd = { fast: 12, slow: 26, signal: 9 };
-    }
-
-    if (
-      (usedVars.has('bb_upper') ||
-        usedVars.has('bb_middle') ||
-        usedVars.has('bb_lower')) &&
-      !ind.bbands
-    ) {
-      this.logger.log(
-        'Auto-injecting missing indicator: bbands={period:20,stddev:2}',
-      );
-      ind.bbands = { period: 20, stddev: 2 };
-    }
-
-    if (
-      (usedVars.has('stoch_k') || usedVars.has('stoch_d')) &&
-      !ind.stoch
-    ) {
-      this.logger.log(
-        'Auto-injecting missing indicator: stoch={kPeriod:14,dPeriod:3}',
-      );
-      ind.stoch = { kPeriod: 14, dPeriod: 3 };
-    }
-
-    return { ...strategy, indicator: ind };
   }
 
   private simulateTrades(
