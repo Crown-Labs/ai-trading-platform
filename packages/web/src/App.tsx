@@ -95,18 +95,32 @@ function App() {
               {backtestResult && (
                 <>
                   <BacktestStats metrics={backtestResult.metrics} />
-                  <BacktestHeatmap trades={backtestResult.trades} />
-                  {candles.length > 0 && (
-                    <BacktestChart
-                      candles={candles}
-                      trades={backtestResult.trades}
-                      symbol={strategy?.market?.symbol ?? 'BTCUSDT'}
-                      defaultTimeframe={
-                        strategy?.market?.timeframe ?? '1h'
-                      }
-                    />
+
+                  {/* trades may be stripped from localStorage — check metrics to distinguish */}
+                  {backtestResult.trades == null && backtestResult.metrics.totalTrades > 0 ? (
+                    <div className="card flex items-center gap-3 py-4 px-5">
+                      <span className="text-yellow-400 text-lg">⚠️</span>
+                      <div>
+                        <p className="text-sm text-gray-300 font-medium">Trade details not available after page reload</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Re-run the backtest to restore chart, heatmap and trade history ({backtestResult.metrics.totalTrades} trades)</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <BacktestHeatmap trades={backtestResult.trades ?? []} />
+                      {candles.length > 0 && (
+                        <BacktestChart
+                          candles={candles}
+                          trades={backtestResult.trades ?? []}
+                          symbol={strategy?.market?.symbol ?? 'BTCUSDT'}
+                          defaultTimeframe={
+                            strategy?.market?.timeframe ?? '1h'
+                          }
+                        />
+                      )}
+                      <TradeTable trades={backtestResult.trades ?? []} />
+                    </>
                   )}
-                  <TradeTable trades={backtestResult.trades} />
                 </>
               )}
 
