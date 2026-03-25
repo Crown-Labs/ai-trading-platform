@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Header from './components/Header';
 import ChatPanel from './components/ChatPanel';
 import ChatSidebar from './components/ChatSidebar';
@@ -8,7 +9,10 @@ import TradeTable from './components/TradeTable';
 import BacktestHeatmap from './components/BacktestHeatmap';
 import BacktestVersionNav from './components/BacktestVersionNav';
 import { useChatSessions } from './hooks/useChatSessions';
+import { useTradeData } from './hooks/useTradeData';
 import { ChatSession } from './types/chat';
+
+const queryClient = new QueryClient();
 
 function App() {
   const {
@@ -33,9 +37,12 @@ function App() {
       (r) => r.id === activeSession.activeRunId,
     ) ?? null;
   const backtestResult = activeRun?.result ?? activeSession?.backtestResult ?? null;
-  const candles = activeSession?.candles ?? [];
-  const strategy =
-    activeRun?.strategy ?? activeSession?.strategy ?? null;
+  const strategy = activeRun?.strategy ?? activeSession?.strategy ?? null;
+
+  // Load trades + candles from IndexedDB via React Query
+  const { data: runData } = useTradeData(activeRun?.id);
+  const trades = runData?.trades ?? [];
+  const candles = runData?.candles ?? activeSession?.candles ?? [];
 
   return (
     <div className="h-screen bg-dark-900 flex flex-col overflow-hidden">
@@ -95,18 +102,18 @@ function App() {
               {backtestResult && (
                 <>
                   <BacktestStats metrics={backtestResult.metrics} />
-                  <BacktestHeatmap trades={backtestResult.trades} />
+                  <BacktestHeatmap trades={trades} />
                   {candles.length > 0 && (
                     <BacktestChart
                       candles={candles}
-                      trades={backtestResult.trades}
+                      trades={trades}
                       symbol={strategy?.market?.symbol ?? 'BTCUSDT'}
                       defaultTimeframe={
                         strategy?.market?.timeframe ?? '1h'
                       }
                     />
                   )}
-                  <TradeTable trades={backtestResult.trades} />
+                  <TradeTable trades={trades} />
                 </>
               )}
 
@@ -129,4 +136,12 @@ function App() {
   );
 }
 
-export default App;
+function AppWithProviders() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>
+  );
+}
+
+export default AppWithProviders;

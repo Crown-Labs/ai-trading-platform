@@ -4,6 +4,8 @@ import YAML from 'yaml';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChatSession, ChatMessage } from '../types/chat';
+import { saveRunData } from '../lib/trade-store';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface ChatPanelProps {
   session: ChatSession;
@@ -115,6 +117,7 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
 }
 
 export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProps) {
+  const queryClient = useQueryClient();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [backtestLoading, setBacktestLoading] = useState(false);
@@ -188,9 +191,10 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
       onUpdate({ candles });
 
       if (onAddRun) {
+        const runId = crypto.randomUUID();
         const version = (session.backtestRuns?.length ?? 0) + 1;
         const run: BacktestRun = {
-          id: crypto.randomUUID(),
+          id: runId,
           version,
           strategyName: strategy.name,
           startDate: dateRange.startDate,
@@ -199,6 +203,17 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
           result: backtestResult,
           createdAt: new Date().toISOString(),
         };
+
+        // Save trades + candles to IndexedDB (large data, not localStorage)
+        await saveRunData({
+          runId,
+          trades: backtestResult.trades ?? [],
+          candles,
+          dataRange: backtestResult.dataRange,
+        });
+        // Invalidate React Query cache for this runId
+        queryClient.invalidateQueries({ queryKey: ['run-data', runId] });
+
         onAddRun(run);
       }
 
