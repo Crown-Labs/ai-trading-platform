@@ -13,8 +13,42 @@ function loadSessions(): ChatSession[] {
   }
 }
 
+/**
+ * Strip large transient data before saving to localStorage.
+ * - candles: re-fetched on demand, can be 200KB+
+ * - backtestRuns[].result.trades: large array, re-runnable
+ * Keep: messages, strategy DSL, metrics, run metadata
+ */
+function stripForStorage(sessions: ChatSession[]): ChatSession[] {
+  return sessions.map((s) => ({
+    ...s,
+    candles: undefined,
+    backtestRuns: s.backtestRuns?.map((run) => ({
+      ...run,
+      result: {
+        ...run.result,
+        trades: [],        // strip trades (large), keep metrics
+        dataRange: undefined,
+      },
+    })),
+  }));
+}
+
 function saveSessions(sessions: ChatSession[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stripForStorage(sessions)));
+  } catch (e) {
+    // If still over quota (e.g. too many sessions/messages), trim oldest sessions
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      const trimmed = sessions.slice(0, Math.max(1, Math.floor(sessions.length / 2)));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stripForStorage(trimmed)));
+      } catch {
+        // Last resort: clear and save only active session
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+  }
 }
 
 export function useChatSessions() {
