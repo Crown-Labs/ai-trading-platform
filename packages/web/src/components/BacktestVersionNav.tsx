@@ -84,6 +84,21 @@ export default function BacktestVersionNav({
           </div>
         )}
       </div>
+
+      {/* Data coverage warning */}
+      {activeRun?.result.dataRange && !activeRun.result.dataRange.isComplete && (
+        <div className="mt-2 flex items-center gap-2 text-xs bg-yellow-500/10 border border-yellow-500/20 rounded-md px-3 py-1.5">
+          <span className="text-yellow-400">⚠️</span>
+          <span className="text-yellow-300">
+            Data available:{' '}
+            <span className="font-medium">
+              {activeRun.result.dataRange.actualStart.slice(0, 7)} – {activeRun.result.dataRange.actualEnd.slice(0, 7)}
+            </span>{' '}
+            ({activeRun.result.dataRange.actualDays} of {activeRun.result.dataRange.requestedDays} days,{' '}
+            {Math.round((activeRun.result.dataRange.actualDays / activeRun.result.dataRange.requestedDays) * 100)}% coverage)
+          </span>
+        </div>
+      )}
     </div>
   );
 }

@@ -83,10 +83,22 @@ export interface BacktestMetrics {
   totalFees: number;
 }
 
+export interface BacktestDataRange {
+  requestedStart: string;   // ISO date from strategy.startDate
+  requestedEnd: string;     // ISO date from strategy.endDate
+  actualStart: string;      // ISO date of first candle
+  actualEnd: string;        // ISO date of last candle
+  totalCandles: number;
+  requestedDays: number;
+  actualDays: number;
+  isComplete: boolean;      // true if actual >= requested
+}
+
 export interface BacktestResult {
   strategy: StrategyDSL;
   trades: Trade[];
   metrics: BacktestMetrics;
+  dataRange?: BacktestDataRange;
 }
 
 export interface BacktestRun {
