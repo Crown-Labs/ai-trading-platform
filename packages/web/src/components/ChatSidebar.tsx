@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { ChatSession } from '../types/chat';
+import ConfirmDialog from './ConfirmDialog';
 
 interface ChatSidebarProps {
   sessions: ChatSession[];
@@ -30,6 +32,9 @@ export default function ChatSidebar({
   onCreate,
   onDelete,
 }: ChatSidebarProps) {
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const pendingSession = sessions.find((s) => s.id === pendingDeleteId);
+
   return (
     <div className="flex flex-col h-full">
       <button onClick={onCreate} className="btn-primary w-full mb-4 text-sm">
@@ -63,9 +68,7 @@ export default function ChatSidebar({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (window.confirm(`Delete "${session.title}"?`)) {
-                    onDelete(session.id);
-                  }
+                  setPendingDeleteId(session.id);
                 }}
                 className="ml-2 p-1 rounded text-gray-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
                 title="Delete chat"
@@ -81,6 +84,20 @@ export default function ChatSidebar({
           );
         })}
       </div>
+
+      {/* Custom confirm dialog */}
+      {pendingDeleteId && pendingSession && (
+        <ConfirmDialog
+          title="Delete chat?"
+          message={`"${pendingSession.title}" and all its backtest history will be permanently deleted.`}
+          confirmLabel="Delete"
+          onConfirm={() => {
+            onDelete(pendingDeleteId);
+            setPendingDeleteId(null);
+          }}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
     </div>
   );
 }
