@@ -76,11 +76,15 @@ export default function BacktestChart({
       },
       rightPriceScale: {
         borderColor: '#1e293b',
+        autoScale: true,
       },
       timeScale: {
         borderColor: '#1e293b',
         timeVisible: true,
         secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true,
+        lockVisibleTimeRangeOnResize: true,
       },
       width: chartContainerRef.current.clientWidth,
       height: 320,
