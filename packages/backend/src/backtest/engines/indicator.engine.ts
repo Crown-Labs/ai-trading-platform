@@ -40,79 +40,96 @@ export class IndicatorEngine {
     const closes = candles.map((c) => c.close);
     const highs = candles.map((c) => c.high);
     const lows = candles.map((c) => c.low);
+    const volumes = candles.map((c) => c.volume);
     const values: IndicatorValues = {};
 
-    if (indicator.rsi) {
-      values['rsi'] = this.indicators.calculateRSI(closes, indicator.rsi);
-    }
-    if (indicator.ema_fast) {
-      values['ema_fast'] = this.indicators.calculateEMA(
-        closes,
-        indicator.ema_fast,
-      );
-    }
-    if (indicator.ema_slow) {
-      values['ema_slow'] = this.indicators.calculateEMA(
-        closes,
-        indicator.ema_slow,
-      );
-    }
-    if (indicator.sma) {
-      values['sma'] = this.indicators.calculateSMA(closes, indicator.sma);
-    }
-    if (indicator.macd) {
-      const m = indicator.macd;
-      const result = this.indicators.calculateMACD(
-        closes,
-        m.fast,
-        m.slow,
-        m.signal,
-      );
-      values['macd'] = result.macd;
-      values['macd_signal'] = result.signal;
-      values['macd_histogram'] = result.histogram;
-    }
-    if (indicator.bbands) {
-      const b = indicator.bbands;
-      const result = this.indicators.calculateBBands(
-        closes,
-        b.period,
-        b.stddev ?? 2,
-      );
-      values['bb_upper'] = result.upper;
-      values['bb_middle'] = result.middle;
-      values['bb_lower'] = result.lower;
-    }
-    if (indicator.stoch) {
-      const s = indicator.stoch;
-      const result = this.indicators.calculateStoch(
-        highs,
-        lows,
-        closes,
-        s.kPeriod ?? 14,
-        s.dPeriod ?? 3,
-      );
-      values['stoch_k'] = result.k;
-      values['stoch_d'] = result.d;
-    }
-    if (indicator.atr) {
-      values['atr'] = this.indicators.calculateATR(
-        highs,
-        lows,
-        closes,
-        indicator.atr,
-      );
-    }
-    if (indicator.adx) {
-      values['adx'] = this.indicators.calculateADX(
-        highs,
-        lows,
-        indicator.adx,
-      );
+    const inputs = { closes, highs, lows };
+
+    // Dynamic indicator computation
+    for (const [key, value] of Object.entries(indicator)) {
+      if (value == null) continue;
+
+      // Handle special cases with specific output mapping
+      if (key === 'macd' && typeof value === 'object') {
+        const result = this.indicators.calculate(key, inputs, {
+          ...value,
+          volume: volumes,
+        });
+        if (result && typeof result === 'object' && !Array.isArray(result)) {
+          values['macd'] = result.macd as number[];
+          values['macd_signal'] = result.signal as number[];
+          values['macd_histogram'] = result.histogram as number[];
+        }
+      } else if (key === 'bbands' && typeof value === 'object') {
+        const result = this.indicators.calculate(key, inputs, {
+          ...value,
+          volume: volumes,
+        });
+        if (result && typeof result === 'object' && !Array.isArray(result)) {
+          values['bb_upper'] = result.upper as number[];
+          values['bb_middle'] = result.middle as number[];
+          values['bb_lower'] = result.lower as number[];
+        }
+      } else if (key === 'stoch' && typeof value === 'object') {
+        const result = this.indicators.calculate(key, inputs, {
+          ...value,
+          volume: volumes,
+        });
+        if (result && typeof result === 'object' && !Array.isArray(result)) {
+          values['stoch_k'] = result.k as number[];
+          values['stoch_d'] = result.d as number[];
+        }
+      } else if (key === 'kc' && typeof value === 'object') {
+        const result = this.indicators.calculate(key, inputs, {
+          ...value,
+          volume: volumes,
+        });
+        if (result && typeof result === 'object' && !Array.isArray(result)) {
+          values['kc_lower'] = result.lower as number[];
+          values['kc_middle'] = result.middle as number[];
+          values['kc_upper'] = result.upper as number[];
+        }
+      } else if (key === 'aroon' && typeof value === 'number') {
+        const result = this.indicators.calculate(key, inputs, {
+          period: value,
+          volume: volumes,
+        });
+        if (result && typeof result === 'object' && !Array.isArray(result)) {
+          values['aroon_up'] = result.up as number[];
+          values['aroon_down'] = result.down as number[];
+        }
+      } else if (key === 'ema_fast' || key === 'ema_slow') {
+        // Handle EMA variations
+        const result = this.indicators.calculate('ema', inputs, {
+          period: value,
+          volume: volumes,
+        });
+        if (result && Array.isArray(result)) {
+          values[key] = result;
+        }
+      } else {
+        // Generic handling for simple indicators
+        const params =
+          typeof value === 'object' ? { ...value, volume: volumes } : { period: value, volume: volumes };
+        const result = this.indicators.calculate(key, inputs, params);
+        if (result) {
+          if (Array.isArray(result)) {
+            values[key] = result;
+          } else if (typeof result === 'object') {
+            // For any other complex indicators, try to flatten
+            for (const [subKey, subValue] of Object.entries(result)) {
+              if (Array.isArray(subValue)) {
+                values[`${key}_${subKey}`] = subValue;
+              }
+            }
+          }
+        }
+      }
     }
 
+    // Always include base values
     values['close'] = closes;
-    values['volume'] = candles.map((c) => c.volume);
+    values['volume'] = volumes;
 
     return values;
   }

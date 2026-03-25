@@ -13,6 +13,7 @@ export interface StrategyDSL {
     timeframe: string;
   };
   indicator: {
+    // Original indicators
     rsi?: number;
     ema_fast?: number;
     ema_slow?: number;
@@ -22,6 +23,24 @@ export interface StrategyDSL {
     stoch?: { kPeriod: number; dPeriod: number };
     atr?: number;
     adx?: number;
+    // New indicators
+    cci?: number;
+    wma?: number;
+    vwap?: number;
+    obv?: Record<string, never>; // OBV uses volume automatically
+    roc?: number;
+    stochrsi?: number;
+    dema?: number;
+    tema?: number;
+    hma?: number;
+    willr?: number;
+    mfi?: number;
+    kc?: { period: number; multiple: number };
+    aroon?: number;
+    psar?: { step: number; max: number };
+    cmf?: number;
+    // Allow any other indicators dynamically
+    [key: string]: any;
   };
   entry: {
     condition: string[];

@@ -45,9 +45,26 @@ export class BacktestService {
       startTime ? undefined : 500,
     );
 
+    this.logger.log(`✅ Fetched ${candles.length} candles for ${inputStrategy.market.symbol} (${inputStrategy.market.timeframe})`);
+    if (startTime && endTime) {
+      const days = Math.round((endTime - startTime) / (1000 * 60 * 60 * 24));
+      this.logger.log(`📅 Date range: ${days} days (${new Date(startTime).toISOString().split('T')[0]} to ${new Date(endTime).toISOString().split('T')[0]})`);
+    }
+
     const { values: indicatorValues, indicator } =
       this.indicatorEngine.autoCompute(candles, inputStrategy);
     const strategy = { ...inputStrategy, indicator };
+
+    // Log indicator warm-up info
+    const indicatorNames = Object.keys(indicator);
+    this.logger.log(`📊 Computing indicators: ${indicatorNames.join(', ')}`);
+
+    // Check for NaN values in indicators (indicates warm-up period)
+    const firstValidIndex = this.findFirstValidIndex(indicatorValues);
+    if (firstValidIndex > 0) {
+      this.logger.warn(`⚠️  First ${firstValidIndex} candles have invalid indicators (warm-up period)`);
+      this.logger.warn(`⚠️  Only ${candles.length - firstValidIndex} candles available for trading`);
+    }
 
     const execParams: ExecutionParams = {
       commission: strategy.execution?.commission ?? DEFAULT_COMMISSION,
@@ -69,9 +86,34 @@ export class BacktestService {
       useNextBar,
     );
 
+    this.logger.log(`🎯 Backtest complete: ${trades.length} trades executed`);
+    if (trades.length === 0) {
+      this.logger.warn(`⚠️  NO TRADES FOUND!`);
+      this.logger.warn(`   Possible reasons:`);
+      this.logger.warn(`   1. Date range too short (need > 34 days for EMA 200 warm-up)`);
+      this.logger.warn(`   2. Entry conditions never met`);
+      this.logger.warn(`   3. Indicators have too many NaN values`);
+    }
+
     const metrics = this.metricsEngine.calculate(trades);
 
     return { strategy, trades, metrics };
+  }
+
+  private findFirstValidIndex(indicators: Record<string, number[]>): number {
+    // Find first index where all indicators have valid (non-NaN) values
+    if (Object.keys(indicators).length === 0) return 0;
+
+    const firstIndicator = Object.values(indicators)[0];
+    if (!firstIndicator) return 0;
+
+    for (let i = 0; i < firstIndicator.length; i++) {
+      const allValid = Object.values(indicators).every(
+        arr => !isNaN(arr[i]) && arr[i] != null
+      );
+      if (allValid) return i;
+    }
+    return firstIndicator.length;
   }
 
   private simulateTrades(
@@ -97,6 +139,8 @@ export class BacktestService {
 
     const hasShort = (entry.short_condition?.length ?? 0) > 0;
     const shortExitConditions = exit.short_condition ?? exit.condition;
+
+    let signalCount = { longEntry: 0, longExit: 0, shortEntry: 0, shortExit: 0 };
 
     for (let i = 0; i < candles.length; i++) {
       const candle = candles[i];
@@ -222,6 +266,12 @@ export class BacktestService {
         shortExitConditions,
       );
 
+      // Track signal generation
+      if (signals.longEntry) signalCount.longEntry++;
+      if (signals.longExit) signalCount.longExit++;
+      if (signals.shortEntry) signalCount.shortEntry++;
+      if (signals.shortExit) signalCount.shortExit++;
+
       if (useNextBar) {
         // Queue signals for next bar execution
         if (!longPos && signals.longEntry) pendingLongEntry = true;
@@ -275,6 +325,21 @@ export class BacktestService {
 
     trades.sort((a, b) => a.entryTime.localeCompare(b.entryTime));
     trades.forEach((t, i) => (t.id = i + 1));
+
+    // Log signal statistics
+    this.logger.log(`📊 Signal Statistics:`);
+    this.logger.log(`   Long Entry Signals: ${signalCount.longEntry}`);
+    this.logger.log(`   Long Exit Signals: ${signalCount.longExit}`);
+    if (hasShort) {
+      this.logger.log(`   Short Entry Signals: ${signalCount.shortEntry}`);
+      this.logger.log(`   Short Exit Signals: ${signalCount.shortExit}`);
+    }
+    this.logger.log(`   Trades Executed: ${trades.length}`);
+
+    if (signalCount.longEntry === 0 && signalCount.shortEntry === 0) {
+      this.logger.warn(`⚠️  NO ENTRY SIGNALS generated!`);
+      this.logger.warn(`   Check your entry conditions and indicator values`);
+    }
 
     return trades;
   }
