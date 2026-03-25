@@ -172,7 +172,7 @@ export class AiService {
     const url = `${this.gatewayUrl}/v1/chat/completions`;
 
     const body = JSON.stringify({
-      model: this.agentId,
+      model: `openclaw:${this.agentId}`,
       messages: fullMessages,
       stream: true,
       ...(sessionId && { user: sessionId }),

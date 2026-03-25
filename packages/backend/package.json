@@ -5,6 +5,7 @@
   "scripts": {
     "prebuild": "rm -f tsconfig.tsbuildinfo",
     "build": "nest build",
+    "test": "jest",
     "dev": "nest start --watch",
     "start": "node dist/main",
     "start:dev": "nest start --watch",
@@ -27,7 +28,11 @@
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",
     "@nestjs/schematics": "^11.0.9",
+    "@nestjs/testing": "^11.1.17",
+    "@types/jest": "^30.0.0",
     "@types/node": "^25.5.0",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.6",
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
