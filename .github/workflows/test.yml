@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Test shared
+        run: yarn workspace @ai-trading/shared test
+
+      - name: Test backend
+        run: yarn workspace @ai-trading/backend test
+
+      - name: Test web
+        run: yarn workspace @ai-trading/web test
