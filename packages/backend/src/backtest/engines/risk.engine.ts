@@ -1,40 +1,74 @@
 import { Injectable } from '@nestjs/common';
+import { OHLCVCandle } from '@ai-trading/shared';
+
+export interface RiskCheckResult {
+  triggered: boolean;
+  fillPrice: number;
+}
 
 @Injectable()
 export class RiskEngine {
+  /**
+   * Long SL: triggered if candle low dips to/below stop price.
+   * Fill at the stop price (not the low).
+   */
   checkLongStopLoss(
-    currentPrice: number,
+    candle: OHLCVCandle,
     entryPrice: number,
     stopLoss: number,
-  ): boolean {
-    const pnlPercent =
-      ((currentPrice - entryPrice) / entryPrice) * 100;
-    return pnlPercent <= -stopLoss;
+  ): RiskCheckResult {
+    const stopPrice = entryPrice * (1 - stopLoss / 100);
+    if (candle.low <= stopPrice) {
+      return { triggered: true, fillPrice: stopPrice };
+    }
+    return { triggered: false, fillPrice: 0 };
   }
 
+  /**
+   * Long TP: triggered if candle high reaches/exceeds take profit price.
+   * Fill at the TP price.
+   */
   checkLongTakeProfit(
-    currentPrice: number,
+    candle: OHLCVCandle,
     entryPrice: number,
     takeProfit: number,
-  ): boolean {
-    const pnlPercent =
-      ((currentPrice - entryPrice) / entryPrice) * 100;
-    return pnlPercent >= takeProfit;
+  ): RiskCheckResult {
+    const tpPrice = entryPrice * (1 + takeProfit / 100);
+    if (candle.high >= tpPrice) {
+      return { triggered: true, fillPrice: tpPrice };
+    }
+    return { triggered: false, fillPrice: 0 };
   }
 
+  /**
+   * Short SL: triggered if candle high reaches/exceeds stop price (price went up).
+   * Fill at the stop price.
+   */
   checkShortStopLoss(
-    currentPrice: number,
+    candle: OHLCVCandle,
     entryPrice: number,
     stopLoss: number,
-  ): boolean {
-    return currentPrice >= entryPrice * (1 + stopLoss / 100);
+  ): RiskCheckResult {
+    const stopPrice = entryPrice * (1 + stopLoss / 100);
+    if (candle.high >= stopPrice) {
+      return { triggered: true, fillPrice: stopPrice };
+    }
+    return { triggered: false, fillPrice: 0 };
   }
 
+  /**
+   * Short TP: triggered if candle low dips to/below take profit price (price went down).
+   * Fill at the TP price.
+   */
   checkShortTakeProfit(
-    currentPrice: number,
+    candle: OHLCVCandle,
     entryPrice: number,
     takeProfit: number,
-  ): boolean {
-    return currentPrice <= entryPrice * (1 - takeProfit / 100);
+  ): RiskCheckResult {
+    const tpPrice = entryPrice * (1 - takeProfit / 100);
+    if (candle.low <= tpPrice) {
+      return { triggered: true, fillPrice: tpPrice };
+    }
+    return { triggered: false, fillPrice: 0 };
   }
 }

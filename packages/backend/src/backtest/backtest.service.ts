@@ -15,6 +15,7 @@ import { MetricsEngine } from './engines/metrics.engine';
 const DEFAULT_COMMISSION = 0.001;
 const DEFAULT_SLIPPAGE = 0.0005;
 const DEFAULT_LEVERAGE = 1;
+const INITIAL_CAPITAL = 10000;
 
 @Injectable()
 export class BacktestService {
@@ -44,7 +45,6 @@ export class BacktestService {
       startTime ? undefined : 500,
     );
 
-    // Auto-detect + inject missing indicators from conditions, then compute
     const { values: indicatorValues, indicator } =
       this.indicatorEngine.autoCompute(candles, inputStrategy);
     const strategy = { ...inputStrategy, indicator };
@@ -56,6 +56,9 @@ export class BacktestService {
       positionSize: strategy.risk.position_size,
     };
 
+    const useNextBar =
+      (strategy.execution?.execution_model ?? 'next_bar') === 'next_bar';
+
     const trades = this.simulateTrades(
       candles,
       indicatorValues,
@@ -63,6 +66,7 @@ export class BacktestService {
       strategy.exit,
       strategy.risk,
       execParams,
+      useNextBar,
     );
 
     const metrics = this.metricsEngine.calculate(trades);
@@ -77,19 +81,137 @@ export class BacktestService {
     exit: { condition: string[]; short_condition?: string[] },
     risk: { stop_loss: number; take_profit: number; position_size: number },
     execParams: ExecutionParams,
+    useNextBar: boolean,
   ): Trade[] {
     const trades: Trade[] = [];
     let tradeId = 0;
+    let capital = INITIAL_CAPITAL;
 
-    let longEntry: { price: number; time: string } | null = null;
-    let shortEntry: { price: number; time: string } | null = null;
+    let longPos: { price: number; time: string } | null = null;
+    let shortPos: { price: number; time: string } | null = null;
+
+    let pendingLongEntry = false;
+    let pendingLongExit = false;
+    let pendingShortEntry = false;
+    let pendingShortExit = false;
 
     const hasShort = (entry.short_condition?.length ?? 0) > 0;
     const shortExitConditions = exit.short_condition ?? exit.condition;
 
-    for (let i = 1; i < candles.length; i++) {
-      const currentPrice = candles[i].close;
-      const timestamp = new Date(candles[i].timestamp).toISOString();
+    for (let i = 0; i < candles.length; i++) {
+      const candle = candles[i];
+      const timestamp = new Date(candle.timestamp).toISOString();
+
+      // === PHASE 1: Execute pending signals at this bar's open ===
+      if (useNextBar) {
+        if (pendingLongEntry && !longPos) {
+          longPos = { price: candle.open, time: timestamp };
+          pendingLongEntry = false;
+        }
+        if (pendingLongExit && longPos) {
+          tradeId++;
+          const trade = this.executionEngine.closeLong(
+            longPos.price,
+            candle.open,
+            longPos.time,
+            timestamp,
+            tradeId,
+            execParams,
+            capital,
+          );
+          trades.push(trade);
+          capital += trade.pnl;
+          longPos = null;
+          pendingLongExit = false;
+        }
+        if (hasShort) {
+          if (pendingShortEntry && !shortPos) {
+            shortPos = { price: candle.open, time: timestamp };
+            pendingShortEntry = false;
+          }
+          if (pendingShortExit && shortPos) {
+            tradeId++;
+            const trade = this.executionEngine.closeShort(
+              shortPos.price,
+              candle.open,
+              shortPos.time,
+              timestamp,
+              tradeId,
+              execParams,
+              capital,
+            );
+            trades.push(trade);
+            capital += trade.pnl;
+            shortPos = null;
+            pendingShortExit = false;
+          }
+        }
+      }
+
+      // === PHASE 2: Check intrabar SL/TP using high/low ===
+      if (longPos) {
+        const sl = this.riskEngine.checkLongStopLoss(
+          candle,
+          longPos.price,
+          risk.stop_loss,
+        );
+        const tp = this.riskEngine.checkLongTakeProfit(
+          candle,
+          longPos.price,
+          risk.take_profit,
+        );
+        // SL takes priority over TP
+        if (sl.triggered || tp.triggered) {
+          const fillPrice = sl.triggered ? sl.fillPrice : tp.fillPrice;
+          tradeId++;
+          const trade = this.executionEngine.closeLong(
+            longPos.price,
+            fillPrice,
+            longPos.time,
+            timestamp,
+            tradeId,
+            execParams,
+            capital,
+          );
+          trades.push(trade);
+          capital += trade.pnl;
+          longPos = null;
+          pendingLongExit = false;
+        }
+      }
+      if (shortPos) {
+        const sl = this.riskEngine.checkShortStopLoss(
+          candle,
+          shortPos.price,
+          risk.stop_loss,
+        );
+        const tp = this.riskEngine.checkShortTakeProfit(
+          candle,
+          shortPos.price,
+          risk.take_profit,
+        );
+        if (sl.triggered || tp.triggered) {
+          const fillPrice = sl.triggered ? sl.fillPrice : tp.fillPrice;
+          tradeId++;
+          const trade = this.executionEngine.closeShort(
+            shortPos.price,
+            fillPrice,
+            shortPos.time,
+            timestamp,
+            tradeId,
+            execParams,
+            capital,
+          );
+          trades.push(trade);
+          capital += trade.pnl;
+          shortPos = null;
+          pendingShortExit = false;
+        }
+      }
+
+      // === PHASE 3: Evaluate signals on this bar's close ===
+      // Skip first bar (need previous data for indicators)
+      if (i === 0) continue;
 
       const signals = this.signalEngine.evaluate(
         i,
@@ -100,74 +222,52 @@ export class BacktestService {
         shortExitConditions,
       );
 
-      // --- LONG ---
-      if (!longEntry) {
-        if (signals.longEntry) {
-          longEntry = { price: currentPrice, time: timestamp };
+      if (useNextBar) {
+        // Queue signals for next bar execution
+        if (!longPos && signals.longEntry) pendingLongEntry = true;
+        if (longPos && signals.longExit) pendingLongExit = true;
+        if (hasShort) {
+          if (!shortPos && signals.shortEntry) pendingShortEntry = true;
+          if (shortPos && signals.shortExit) pendingShortExit = true;
         }
       } else {
-        const exitSignal =
-          signals.longExit ||
-          this.riskEngine.checkLongStopLoss(
-            currentPrice,
-            longEntry.price,
-            risk.stop_loss,
-          ) ||
-          this.riskEngine.checkLongTakeProfit(
-            currentPrice,
-            longEntry.price,
-            risk.take_profit,
-          );
-
-        if (exitSignal) {
+        // Same-bar execution (legacy mode)
+        if (!longPos && signals.longEntry) {
+          longPos = { price: candle.close, time: timestamp };
+        }
+        if (longPos && signals.longExit) {
           tradeId++;
-          trades.push(
-            this.executionEngine.closeLong(
-              longEntry.price,
-              currentPrice,
-              longEntry.time,
+          const trade = this.executionEngine.closeLong(
+            longPos.price,
+            candle.close,
+            longPos.time,
+            timestamp,
+            tradeId,
+            execParams,
+            capital,
+          );
+          trades.push(trade);
+          capital += trade.pnl;
+          longPos = null;
+        }
+        if (hasShort) {
+          if (!shortPos && signals.shortEntry) {
+            shortPos = { price: candle.close, time: timestamp };
+          }
+          if (shortPos && signals.shortExit) {
+            tradeId++;
+            const trade = this.executionEngine.closeShort(
+              shortPos.price,
+              candle.close,
+              shortPos.time,
               timestamp,
               tradeId,
               execParams,
-            ),
-          );
-          longEntry = null;
-        }
-      }
-
-      // --- SHORT ---
-      if (hasShort) {
-        if (!shortEntry) {
-          if (signals.shortEntry) {
-            shortEntry = { price: currentPrice, time: timestamp };
-          }
-        } else {
-          const exitSignal =
-            signals.shortExit ||
-            this.riskEngine.checkShortStopLoss(
-              currentPrice,
-              shortEntry.price,
-              risk.stop_loss,
-            ) ||
-            this.riskEngine.checkShortTakeProfit(
-              currentPrice,
-              shortEntry.price,
-              risk.take_profit,
+              capital,
             );
-
-          if (exitSignal) {
-            tradeId++;
-            trades.push(
-              this.executionEngine.closeShort(
-                shortEntry.price,
-                currentPrice,
-                shortEntry.time,
-                timestamp,
-                tradeId,
-                execParams,
-              ),
-            );
-            shortEntry = null;
+            trades.push(trade);
+            capital += trade.pnl;
+            shortPos = null;
           }
         }
       }

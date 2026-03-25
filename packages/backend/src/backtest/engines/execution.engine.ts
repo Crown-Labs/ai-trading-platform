@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Trade } from '@ai-trading/shared';
 
-const INITIAL_CAPITAL = 10000;
-
 export interface ExecutionParams {
   commission: number;
   slippage: number;
@@ -19,16 +17,17 @@ export class ExecutionEngine {
     exitTime: string,
     tradeId: number,
     params: ExecutionParams,
+    capital: number,
   ): Trade {
     const effectiveEntry = entryPrice * (1 + params.slippage);
     const effectiveExit = exitPrice * (1 - params.slippage);
     const positionValue =
-      INITIAL_CAPITAL * (params.positionSize / 100) * params.leverage;
+      capital * (params.positionSize / 100) * params.leverage;
     const fee = positionValue * params.commission * 2;
     const rawPnl =
       ((effectiveExit - effectiveEntry) / effectiveEntry) * positionValue;
     const netPnl = rawPnl - fee;
-    const netPnlPercent = (netPnl / INITIAL_CAPITAL) * 100;
+    const netPnlPercent = (netPnl / capital) * 100;
 
     const sign = netPnlPercent >= 0 ? '+' : '\u2212';
 
@@ -53,16 +52,17 @@ export class ExecutionEngine {
     exitTime: string,
     tradeId: number,
     params: ExecutionParams,
+    capital: number,
   ): Trade {
     const effectiveEntry = entryPrice * (1 - params.slippage);
     const effectiveExit = exitPrice * (1 + params.slippage);
     const positionValue =
-      INITIAL_CAPITAL * (params.positionSize / 100) * params.leverage;
+      capital * (params.positionSize / 100) * params.leverage;
     const fee = positionValue * params.commission * 2;
     const rawPnl =
       ((effectiveEntry - effectiveExit) / effectiveEntry) * positionValue;
     const netPnl = rawPnl - fee;
-    const netPnlPercent = (netPnl / INITIAL_CAPITAL) * 100;
+    const netPnlPercent = (netPnl / capital) * 100;
 
     const sign = netPnlPercent >= 0 ? '+' : '\u2212';
 
