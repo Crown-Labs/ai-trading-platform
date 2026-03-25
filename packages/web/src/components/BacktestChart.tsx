@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceDot,
-} from 'recharts';
+  createChart,
+  createSeriesMarkers,
+  CandlestickSeries,
+  ColorType,
+  type IChartApi,
+  type ISeriesApi,
+  type CandlestickData,
+  type SeriesMarker,
+  type Time,
+} from 'lightweight-charts';
 import { Trade, OHLCVCandle } from '@ai-trading/shared';
 
 interface BacktestChartProps {
@@ -25,10 +27,14 @@ export default function BacktestChart({
   symbol,
   defaultTimeframe = '1h',
 }: BacktestChartProps) {
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const [activeTimeframe, setActiveTimeframe] = useState(defaultTimeframe);
   const [candles, setCandles] = useState(initialCandles);
   const [loading, setLoading] = useState(false);
 
+  // Fetch candles when timeframe changes
   useEffect(() => {
     if (!symbol) return;
     if (activeTimeframe === defaultTimeframe) {
@@ -51,34 +57,113 @@ export default function BacktestChart({
     }
   }, [initialCandles]);
 
-  const chartData = candles.map((c) => ({
-    time: new Date(c.timestamp).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    }),
-    fullTime: new Date(c.timestamp).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
-    price: c.close,
-    timestamp: c.timestamp,
-  }));
+  // Create chart once
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
 
-  const entryDots = trades.map((t) => ({
-    timestamp: new Date(t.entryTime).getTime(),
-    price: t.entryPrice,
-    side: t.side,
-  }));
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: '#0f172a' },
+        textColor: '#94a3b8',
+      },
+      grid: {
+        vertLines: { color: '#1e293b' },
+        horzLines: { color: '#1e293b' },
+      },
+      crosshair: {
+        vertLine: { color: '#334155' },
+        horzLine: { color: '#334155' },
+      },
+      rightPriceScale: {
+        borderColor: '#1e293b',
+      },
+      timeScale: {
+        borderColor: '#1e293b',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      width: chartContainerRef.current.clientWidth,
+      height: 320,
+    });
 
-  const exitDots = trades.map((t) => ({
-    timestamp: new Date(t.exitTime).getTime(),
-    price: t.exitPrice,
-    isWin: t.isWin,
-    side: t.side,
-  }));
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: '#22c55e',
+      downColor: '#ef4444',
+      borderUpColor: '#16a34a',
+      borderDownColor: '#dc2626',
+      wickUpColor: '#22c55e',
+      wickDownColor: '#ef4444',
+    });
+
+    chartRef.current = chart;
+    seriesRef.current = candleSeries;
+
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
+    };
+  }, []);
+
+  // Update candle data + markers
+  useEffect(() => {
+    if (!seriesRef.current || candles.length === 0) return;
+
+    const data: CandlestickData[] = candles
+      .map((c) => ({
+        time: Math.floor(c.timestamp / 1000) as Time,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }))
+      .sort((a, b) => (a.time as number) - (b.time as number));
+
+    seriesRef.current.setData(data);
+
+    // Build markers from trades
+    const markers: SeriesMarker<Time>[] = [];
+    for (const trade of trades) {
+      const entryTime = (Math.floor(
+        new Date(trade.entryTime).getTime() / 1000,
+      )) as Time;
+      const exitTime = (Math.floor(
+        new Date(trade.exitTime).getTime() / 1000,
+      )) as Time;
+      const isShort = trade.side === 'short';
+
+      markers.push({
+        time: entryTime,
+        position: isShort ? 'aboveBar' : 'belowBar',
+        color: isShort ? '#f97316' : '#22c55e',
+        shape: isShort ? 'arrowDown' : 'arrowUp',
+        text: isShort ? 'S' : 'L',
+        size: 1,
+      });
+
+      markers.push({
+        time: exitTime,
+        position: isShort ? 'belowBar' : 'aboveBar',
+        color: trade.isWin ? '#22c55e' : '#ef4444',
+        shape: isShort ? 'arrowUp' : 'arrowDown',
+        text: trade.pnlPercent,
+        size: 1,
+      });
+    }
+
+    markers.sort((a, b) => (a.time as number) - (b.time as number));
+    createSeriesMarkers(seriesRef.current, markers);
+
+    chartRef.current?.timeScale().fitContent();
+  }, [candles, trades]);
 
   return (
     <div className="card">
@@ -102,110 +187,27 @@ export default function BacktestChart({
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-[280px] text-gray-500 text-sm">
+        <div className="flex items-center justify-center h-[320px] text-gray-500 text-sm">
           Loading {activeTimeframe} data...
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={chartData}>
-            <XAxis
-              dataKey="time"
-              tick={{ fill: '#6b7280', fontSize: 10 }}
-              interval="preserveStartEnd"
-            />
-            <YAxis
-              tick={{ fill: '#6b7280', fontSize: 10 }}
-              domain={['auto', 'auto']}
-              tickFormatter={(v) => `$${v.toLocaleString()}`}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
-                borderRadius: '8px',
-              }}
-              labelStyle={{ color: '#94a3b8', fontSize: 11 }}
-              itemStyle={{ color: '#e2e8f0' }}
-              formatter={(v) => [`$${Number(v).toLocaleString()}`, 'Price']}
-              labelFormatter={(_, payload) =>
-                payload?.[0]?.payload?.fullTime ?? ''
-              }
-            />
-            <Line
-              type="monotone"
-              dataKey="price"
-              stroke="#0ea5e9"
-              dot={false}
-              strokeWidth={1.5}
-            />
-            {entryDots.map((dot, i) => {
-              const idx = chartData.findIndex(
-                (d) => Math.abs(d.timestamp - dot.timestamp) < 1000 * 60 * 60 * 2,
-              );
-              if (idx < 0) return null;
-              const isShort = dot.side === 'short';
-              return (
-                <ReferenceDot
-                  key={`entry-${i}`}
-                  x={chartData[idx].time}
-                  y={dot.price}
-                  r={0}
-                  fill="transparent"
-                  stroke="transparent"
-                  label={{
-                    value: isShort ? '▼' : '▲',
-                    position: isShort ? 'insideTop' : 'insideBottom',
-                    fill: isShort ? '#f97316' : '#22c55e',
-                    fontSize: 12,
-                    fontWeight: 'bold',
-                  }}
-                />
-              );
-            })}
-            {exitDots.map((dot, i) => {
-              const idx = chartData.findIndex(
-                (d) => Math.abs(d.timestamp - dot.timestamp) < 1000 * 60 * 60 * 2,
-              );
-              if (idx < 0) return null;
-              const isShort = dot.side === 'short';
-              const color = dot.isWin ? '#22c55e' : '#ef4444';
-              return (
-                <ReferenceDot
-                  key={`exit-${i}`}
-                  x={chartData[idx].time}
-                  y={dot.price}
-                  r={0}
-                  fill="transparent"
-                  stroke="transparent"
-                  label={{
-                    value: isShort ? '▲' : '▼',
-                    position: isShort ? 'insideBottom' : 'insideTop',
-                    fill: color,
-                    fontSize: 12,
-                    fontWeight: 'bold',
-                  }}
-                />
-              );
-            })}
-          </LineChart>
-        </ResponsiveContainer>
+        <div ref={chartContainerRef} className="w-full" />
       )}
 
-      <div className="flex gap-4 mt-2 text-xs text-gray-400 flex-wrap">
-        <span className="flex items-center gap-1">
-          <span className="text-green-500">▲</span> Long Entry
+      <div className="flex gap-4 mt-3 text-xs text-gray-500 flex-wrap">
+        <span>
+          <span className="text-green-500 font-bold">&#x25B2; L</span> Long
+          Entry
         </span>
-        <span className="flex items-center gap-1">
-          <span className="text-green-500">▼</span> Long Exit (win)
+        <span>
+          <span className="text-orange-500 font-bold">&#x25BC; S</span> Short
+          Entry
         </span>
-        <span className="flex items-center gap-1">
-          <span className="text-red-500">▼</span> Long Exit (loss)
+        <span>
+          <span className="text-green-500 font-bold">&#x25BC;</span> Exit (win)
         </span>
-        <span className="flex items-center gap-1">
-          <span className="text-orange-500">▼</span> Short Entry
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="text-green-500">▲</span> Short Exit (win)
+        <span>
+          <span className="text-red-500 font-bold">&#x25BC;</span> Exit (loss)
         </span>
       </div>
     </div>
