@@ -5,6 +5,7 @@
   "scripts": {
     "prebuild": "rm -f tsconfig.tsbuildinfo",
     "build": "nest build",
+    "test": "jest",
     "dev": "nest start --watch",
     "start": "node dist/main",
     "start:dev": "nest start --watch",

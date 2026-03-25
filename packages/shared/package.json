@@ -13,7 +13,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "prepublish": "tsc"
+    "prepublish": "tsc",
+    "test": "jest"
   },
   "dependencies": {},
   "devDependencies": {
