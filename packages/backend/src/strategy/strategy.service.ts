@@ -7,36 +7,104 @@ const PARSE_SYSTEM_PROMPT = `You are a trading strategy parser. Convert the user
 Output ONLY valid YAML with no code fences, no explanation, no markdown. Just raw YAML.
 
 Required top-level keys: strategy (with name), market, indicator, entry, exit, risk.
+Optional: execution (commission, slippage, leverage).
 
 Example output:
 strategy:
-  name: btc_rsi_strategy
+  name: rsi_trend_pullback
 market:
   exchange: binance
   symbol: BTCUSDT
-  timeframe: 1h
+  timeframe: 4h
 indicator:
   rsi: 14
+  ema_fast: 20
+  ema_slow: 50
 entry:
   condition:
-    - "rsi < 30"
+    - "rsi < 40 and ema_fast > ema_slow"
+  short_condition:
+    - "rsi > 60 and ema_fast < ema_slow"
 exit:
   condition:
-    - "rsi > 70"
+    - "rsi > 70 or crossunder(ema_fast, ema_slow)"
+  short_condition:
+    - "rsi < 30 or crossover(ema_fast, ema_slow)"
 risk:
-  stop_loss: 2
-  take_profit: 5
-  position_size: 1
+  stop_loss: 4
+  take_profit: 12
+  position_size: 8
+execution:
+  commission: 0.001
+  slippage: 0.0005
+  leverage: 1
 
 Rules:
 - market.exchange: always "binance"
-- market.symbol: USDT pairs (BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, etc.)
+- market.symbol: USDT pairs (BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, ADAUSDT, etc.)
 - market.timeframe: "1m", "5m", "15m", "1h", "4h", "1d"
-- indicator: rsi (period), ema_fast (period), ema_slow (period), sma, macd, bbands, stoch, atr, adx
-- entry/exit.condition: array of condition strings e.g. "rsi < 30", "ema_fast > ema_slow"
-- risk.stop_loss / take_profit: percentage number
-- risk.position_size: percentage of capital per trade
-- Output ONLY YAML. No fences. No explanation.`;
+
+Available Indicators (23+):
+  Moving Averages: rsi, sma, ema_fast, ema_slow, wma, dema, tema, hma, vwap
+  Oscillators: rsi, stochrsi, cci, roc, willr, mfi
+  Trend: macd, adx, aroon, psar
+  Volatility: atr, bbands, kc (Keltner Channels)
+  Volume: obv, cmf
+  Complex: stoch (Stochastic), macd (requires fast/slow/signal)
+
+  Examples:
+  - Simple: rsi: 14, sma: 50, atr: 14
+  - EMA variations: ema_fast: 20, ema_slow: 200
+  - Complex: macd: { fast: 12, slow: 26, signal: 9 }
+  - Bands: bbands: { period: 20, stddev: 2 }
+  - Stochastic: stoch: { kPeriod: 14, dPeriod: 3 }
+  - Keltner: kc: { period: 20, multiple: 2 }
+  - Aroon: aroon: 25
+  - PSAR: psar: { step: 0.02, max: 0.2 }
+
+Condition Variables:
+  - Indicators: rsi, sma, ema_fast, ema_slow, wma, dema, tema, hma, atr, adx, cci, vwap, obv, roc, stochrsi, willr, mfi, cmf, psar
+  - MACD: macd, macd_signal, macd_histogram
+  - Bollinger: bb_upper, bb_middle, bb_lower
+  - Stochastic: stoch_k, stoch_d
+  - Keltner: kc_upper, kc_middle, kc_lower
+  - Aroon: aroon_up, aroon_down
+  - Base: close, volume
+
+Condition Functions:
+  - Comparisons: <, >, <=, >=, ==, !=
+  - Logic: and, or
+  - Crossovers: crossover(a, b), crossunder(a, b)
+  - Math: +, -, *, /
+
+  Examples:
+  - "rsi < 30 and close > sma"
+  - "ema_fast > ema_slow and close > bb_lower"
+  - "crossover(ema_fast, ema_slow)"
+  - "macd > macd_signal and macd_histogram > 0"
+  - "stoch_k < 20 and stoch_k > stoch_d"
+
+Entry/Exit:
+  - entry.condition: array of conditions for LONG entry
+  - entry.short_condition: (optional) array of conditions for SHORT entry
+  - exit.condition: array of conditions for LONG exit
+  - exit.short_condition: (optional) array of conditions for SHORT exit
+
+Risk Management:
+  - stop_loss: percentage (e.g., 2 = 2%)
+  - take_profit: percentage (e.g., 5 = 5%)
+  - position_size: percentage of capital per trade (e.g., 1 = 1%, 10 = 10%)
+
+Execution (optional):
+  - commission: decimal (default 0.001 = 0.1%)
+  - slippage: decimal (default 0.0005 = 0.05%)
+  - leverage: number (default 1 = spot, >1 = futures)
+
+Output Requirements:
+- ONLY output valid YAML
+- NO code fences (no \`\`\`yaml)
+- NO explanations or commentary
+- Start with "strategy:" immediately`;
 
 @Injectable()
 export class StrategyService {
@@ -139,10 +207,12 @@ export class StrategyService {
       throw new BadRequestException('Missing required field: indicator');
     }
     const entryConditions = entry?.condition as string[] | undefined;
+    const entryShortConditions = entry?.short_condition as string[] | undefined;
     if (!entryConditions?.length) {
       throw new BadRequestException('Missing required field: entry.condition');
     }
     const exitConditions = exit?.condition as string[] | undefined;
+    const exitShortConditions = exit?.short_condition as string[] | undefined;
     if (!exitConditions?.length) {
       throw new BadRequestException('Missing required field: exit.condition');
     }
@@ -163,16 +233,20 @@ export class StrategyService {
         symbol: market.symbol as string,
         timeframe: market.timeframe as string,
       },
-      indicator: {
-        ...(indicator.rsi != null && { rsi: Number(indicator.rsi) }),
-        ...(indicator.ema_fast != null && { ema_fast: Number(indicator.ema_fast) }),
-        ...(indicator.ema_slow != null && { ema_slow: Number(indicator.ema_slow) }),
-        ...(indicator.sma != null && { sma: Number(indicator.sma) }),
-        ...(indicator.atr != null && { atr: Number(indicator.atr) }),
-        ...(indicator.adx != null && { adx: Number(indicator.adx) }),
+      indicator: Object.fromEntries(
+        Object.entries(indicator).map(([key, value]) => [
+          key,
+          typeof value === 'number' ? value : Number(value),
+        ]),
+      ),
+      entry: {
+        condition: entryConditions,
+        ...(entryShortConditions?.length && { short_condition: entryShortConditions }),
       },
-      entry: { condition: entryConditions },
-      exit: { condition: exitConditions },
+      exit: {
+        condition: exitConditions,
+        ...(exitShortConditions?.length && { short_condition: exitShortConditions }),
+      },
       risk: {
         stop_loss: Number(risk.stop_loss),
         take_profit: Number(risk.take_profit),
