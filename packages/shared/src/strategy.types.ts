@@ -24,9 +24,11 @@ export interface StrategyDSL {
   };
   entry: {
     condition: string[];
+    short_condition?: string[];
   };
   exit: {
     condition: string[];
+    short_condition?: string[];
   };
   risk: {
     stop_loss: number;
@@ -65,6 +67,17 @@ export interface BacktestResult {
   strategy: StrategyDSL;
   trades: Trade[];
   metrics: BacktestMetrics;
+}
+
+export interface BacktestRun {
+  id: string;
+  version: number;
+  strategyName: string;
+  startDate: string;
+  endDate: string;
+  strategy: StrategyDSL;
+  result: BacktestResult;
+  createdAt: string;
 }
 
 export interface OHLCVCandle {

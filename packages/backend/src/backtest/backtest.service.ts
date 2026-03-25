@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   StrategyDSL,
   BacktestResult,
@@ -16,12 +16,15 @@ const INITIAL_CAPITAL = 10000;
 
 @Injectable()
 export class BacktestService {
+  private readonly logger = new Logger(BacktestService.name);
+
   constructor(
     private readonly marketData: MarketDataService,
     private readonly indicators: IndicatorsService,
   ) {}
 
-  async runBacktest(strategy: StrategyDSL): Promise<BacktestResult> {
+  async runBacktest(inputStrategy: StrategyDSL): Promise<BacktestResult> {
+    const strategy = this.preprocessDSL(inputStrategy);
     const startTime = strategy.startDate ? new Date(strategy.startDate).getTime() : undefined;
     const endTime = strategy.endDate ? new Date(strategy.endDate).getTime() : undefined;
     const candles = await this.marketData.getCandles(
@@ -29,7 +32,7 @@ export class BacktestService {
       strategy.market.timeframe,
       startTime,
       endTime,
-      500,
+      startTime ? undefined : 500, // if date range given, fetch all; else latest 500
     );
 
     const closes = candles.map((c) => c.close);
@@ -97,8 +100,8 @@ export class BacktestService {
     const trades = this.simulateTrades(
       candles,
       indicatorValues,
-      strategy.entry.condition,
-      strategy.exit.condition,
+      strategy.entry,
+      strategy.exit,
       strategy.risk,
       commission,
       slippage,
@@ -108,6 +111,85 @@ export class BacktestService {
     const metrics = this.calculateMetrics(trades);
 
     return { strategy, trades, metrics };
+  }
+
+  private extractVariables(conditions: string[]): Set<string> {
+    const vars = new Set<string>();
+    const KNOWN_VARS = [
+      'rsi', 'ema_fast', 'ema_slow', 'sma', 'adx', 'atr',
+      'macd', 'macd_signal', 'macd_histogram',
+      'bb_upper', 'bb_middle', 'bb_lower',
+      'stoch_k', 'stoch_d',
+      'close', 'volume',
+    ];
+    for (const cond of conditions) {
+      for (const v of KNOWN_VARS) {
+        if (new RegExp(`\\b${v}\\b`).test(cond)) {
+          vars.add(v);
+        }
+      }
+      const crossMatches = cond.match(/cross(?:over|under)\((\w+),\s*(\w+)\)/gi);
+      if (crossMatches) {
+        crossMatches.forEach((m) => {
+          const args = m.match(/\((\w+),\s*(\w+)\)/);
+          if (args) {
+            vars.add(args[1]);
+            vars.add(args[2]);
+          }
+        });
+      }
+    }
+    return vars;
+  }
+
+  private preprocessDSL(strategy: StrategyDSL): StrategyDSL {
+    const allConditions = [
+      ...(strategy.entry?.condition ?? []),
+      ...(strategy.entry?.short_condition ?? []),
+      ...(strategy.exit?.condition ?? []),
+      ...(strategy.exit?.short_condition ?? []),
+    ];
+    const usedVars = this.extractVariables(allConditions);
+    const ind = { ...(strategy.indicator ?? {}) };
+
+    const defaults: Record<string, number> = {
+      rsi: 14,
+      ema_fast: 20,
+      ema_slow: 200,
+      sma: 50,
+      adx: 14,
+      atr: 14,
+    };
+
+    for (const [key, defaultPeriod] of Object.entries(defaults)) {
+      if (usedVars.has(key) && (ind as any)[key] == null) {
+        this.logger.log(`Auto-injecting missing indicator: ${key}=${defaultPeriod}`);
+        (ind as any)[key] = defaultPeriod;
+      }
+    }
+
+    if (
+      (usedVars.has('macd') || usedVars.has('macd_signal') || usedVars.has('macd_histogram')) &&
+      !ind.macd
+    ) {
+      this.logger.log('Auto-injecting missing indicator: macd={fast:12,slow:26,signal:9}');
+      ind.macd = { fast: 12, slow: 26, signal: 9 };
+    }
+
+    if (
+      (usedVars.has('bb_upper') || usedVars.has('bb_middle') || usedVars.has('bb_lower')) &&
+      !ind.bbands
+    ) {
+      this.logger.log('Auto-injecting missing indicator: bbands={period:20,stddev:2}');
+      ind.bbands = { period: 20, stddev: 2 };
+    }
+
+    if ((usedVars.has('stoch_k') || usedVars.has('stoch_d')) && !ind.stoch) {
+      this.logger.log('Auto-injecting missing indicator: stoch={kPeriod:14,dPeriod:3}');
+      ind.stoch = { kPeriod: 14, dPeriod: 3 };
+    }
+
+    return { ...strategy, indicator: ind };
   }
 
   private evaluateCondition(
@@ -165,44 +247,46 @@ export class BacktestService {
   private simulateTrades(
     candles: OHLCVCandle[],
     indicators: Record<string, number[]>,
-    entryConditions: string[],
-    exitConditions: string[],
+    entry: { condition: string[]; short_condition?: string[] },
+    exit: { condition: string[]; short_condition?: string[] },
     risk: { stop_loss: number; take_profit: number; position_size: number },
     commission: number,
     slippage: number,
     leverage: number,
   ): Trade[] {
     const trades: Trade[] = [];
-    let inPosition = false;
-    let entryPrice = 0;
-    let entryTime = '';
     let tradeId = 0;
 
+    let longEntry: { price: number; time: string } | null = null;
+    let shortEntry: { price: number; time: string } | null = null;
+
+    const hasShort = (entry.short_condition?.length ?? 0) > 0;
+
     for (let i = 1; i < candles.length; i++) {
-      if (!inPosition) {
-        const entrySignal = entryConditions.every((cond) =>
+      const currentPrice = candles[i].close;
+      const timestamp = new Date(candles[i].timestamp).toISOString();
+
+      // --- LONG ---
+      if (!longEntry) {
+        const signal = entry.condition.every((cond) =>
           this.evaluateCondition(cond, indicators, i),
         );
-
-        if (entrySignal) {
-          inPosition = true;
-          entryPrice = candles[i].close;
-          entryTime = new Date(candles[i].timestamp).toISOString();
+        if (signal) {
+          longEntry = { price: currentPrice, time: timestamp };
         }
       } else {
-        const currentPrice = candles[i].close;
         const rawPnlPercent =
-          ((currentPrice - entryPrice) / entryPrice) * 100;
+          ((currentPrice - longEntry.price) / longEntry.price) * 100;
 
         const exitSignal =
-          exitConditions.every((cond) =>
+          exit.condition.every((cond) =>
             this.evaluateCondition(cond, indicators, i),
           ) ||
           rawPnlPercent <= -risk.stop_loss ||
           rawPnlPercent >= risk.take_profit;
 
         if (exitSignal) {
-          const effectiveEntry = entryPrice * (1 + slippage);
+          const effectiveEntry = longEntry.price * (1 + slippage);
           const effectiveExit = currentPrice * (1 - slippage);
           const positionValue =
             INITIAL_CAPITAL * (risk.position_size / 100) * leverage;
@@ -214,25 +298,82 @@ export class BacktestService {
           const netPnlPercent = (netPnl / INITIAL_CAPITAL) * 100;
 
           const sign = netPnlPercent >= 0 ? '+' : '\u2212';
-          const formatted = `${sign}${Math.abs(netPnlPercent).toFixed(2)}%`;
 
           tradeId++;
           trades.push({
             id: tradeId,
-            entryTime,
-            exitTime: new Date(candles[i].timestamp).toISOString(),
-            entryPrice,
+            entryTime: longEntry.time,
+            exitTime: timestamp,
+            entryPrice: longEntry.price,
             exitPrice: currentPrice,
             side: 'long',
             pnl: parseFloat(netPnl.toFixed(2)),
-            pnlPercent: formatted,
+            pnlPercent: `${sign}${Math.abs(netPnlPercent).toFixed(2)}%`,
             fees: parseFloat(fee.toFixed(2)),
             isWin: netPnl > 0,
           });
-          inPosition = false;
+          longEntry = null;
+        }
+      }
+
+      // --- SHORT ---
+      if (hasShort) {
+        if (!shortEntry) {
+          const signal = entry.short_condition!.every((cond) =>
+            this.evaluateCondition(cond, indicators, i),
+          );
+          if (signal) {
+            shortEntry = { price: currentPrice, time: timestamp };
+          }
+        } else {
+          const rawPnlPercent =
+            ((shortEntry.price - currentPrice) / shortEntry.price) * 100;
+
+          const shortExitConditions = exit.short_condition ?? exit.condition;
+          const exitSignal =
+            shortExitConditions.every((cond) =>
+              this.evaluateCondition(cond, indicators, i),
+            ) ||
+            currentPrice >= shortEntry.price * (1 + risk.stop_loss / 100) ||
+            currentPrice <= shortEntry.price * (1 - risk.take_profit / 100);
+
+          if (exitSignal) {
+            const effectiveEntry = shortEntry.price * (1 - slippage);
+            const effectiveExit = currentPrice * (1 + slippage);
+            const positionValue =
+              INITIAL_CAPITAL * (risk.position_size / 100) * leverage;
+            const fee = positionValue * commission * 2;
+            const rawPnl =
+              ((effectiveEntry - effectiveExit) / effectiveEntry) *
+              positionValue;
+            const netPnl = rawPnl - fee;
+            const netPnlPercent = (netPnl / INITIAL_CAPITAL) * 100;
+
+            const sign = netPnlPercent >= 0 ? '+' : '\u2212';
+
+            tradeId++;
+            trades.push({
+              id: tradeId,
+              entryTime: shortEntry.time,
+              exitTime: timestamp,
+              entryPrice: shortEntry.price,
+              exitPrice: currentPrice,
+              side: 'short',
+              pnl: parseFloat(netPnl.toFixed(2)),
+              pnlPercent: `${sign}${Math.abs(netPnlPercent).toFixed(2)}%`,
+              fees: parseFloat(fee.toFixed(2)),
+              isWin: netPnl > 0,
+            });
+            shortEntry = null;
+          }
         }
       }
     }
+
+    // Sort trades by entry time
+    trades.sort((a, b) => a.entryTime.localeCompare(b.entryTime));
+    // Re-number IDs
+    trades.forEach((t, i) => (t.id = i + 1));
 
     return trades;
   }

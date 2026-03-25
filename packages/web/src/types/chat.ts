@@ -1,4 +1,4 @@
-import { StrategyDSL, BacktestResult, OHLCVCandle } from '@ai-trading/shared';
+import { StrategyDSL, BacktestResult, BacktestRun, OHLCVCandle } from '@ai-trading/shared';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -13,4 +13,6 @@ export interface ChatSession {
   strategy?: StrategyDSL;
   backtestResult?: BacktestResult;
   candles?: OHLCVCandle[];
+  backtestRuns?: BacktestRun[];
+  activeRunId?: string;
 }

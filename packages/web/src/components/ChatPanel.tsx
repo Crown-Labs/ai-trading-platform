@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { StrategyDSL } from '@ai-trading/shared';
+import { StrategyDSL, BacktestRun } from '@ai-trading/shared';
 import YAML from 'yaml';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -8,6 +8,7 @@ import { ChatSession, ChatMessage } from '../types/chat';
 interface ChatPanelProps {
   session: ChatSession;
   onUpdate: (partial: Partial<ChatSession>) => void;
+  onAddRun?: (run: BacktestRun) => void;
 }
 
 function isStrategyYaml(yamlText: string): boolean {
@@ -57,7 +58,13 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
   if (!yamlContent) return null;
 
   try {
-    const raw = YAML.parse(yamlContent);
+    // Try JSON first, fallback to YAML (support both formats)
+    let raw: any;
+    try {
+      raw = JSON.parse(yamlContent);
+    } catch {
+      raw = YAML.parse(yamlContent);
+    }
 
     // Support both flat format { name, market, ... }
     // and nested format { strategy: { name }, market, ... }
@@ -84,12 +91,17 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
         timeframe: parsed.market.timeframe,
       },
       indicator: {
-        rsi: parsed.indicator?.rsi,
-        ema_fast: parsed.indicator?.ema_fast,
-        ema_slow: parsed.indicator?.ema_slow,
+        // pass all indicator fields through — backend handles all types
+        ...parsed.indicator,
       },
-      entry: { condition: parsed.entry.condition },
-      exit: { condition: parsed.exit.condition },
+      entry: {
+        condition: parsed.entry.condition,
+        ...(parsed.entry.short_condition?.length && { short_condition: parsed.entry.short_condition }),
+      },
+      exit: {
+        condition: parsed.exit.condition,
+        ...(parsed.exit.short_condition?.length && { short_condition: parsed.exit.short_condition }),
+      },
       risk: {
         stop_loss: parsed.risk.stop_loss,
         take_profit: parsed.risk.take_profit,
@@ -102,7 +114,7 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
   }
 }
 
-export default function ChatPanel({ session, onUpdate }: ChatPanelProps) {
+export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [backtestLoading, setBacktestLoading] = useState(false);
@@ -172,8 +184,23 @@ export default function ChatPanel({ session, onUpdate }: ChatPanelProps) {
       );
       const candles = candleRes.ok ? await candleRes.json() : [];
 
-      // 3. Update charts
-      onUpdate({ backtestResult, candles });
+      // 3. Save candles in session (in-memory) + create versioned run
+      onUpdate({ candles });
+
+      if (onAddRun) {
+        const version = (session.backtestRuns?.length ?? 0) + 1;
+        const run: BacktestRun = {
+          id: crypto.randomUUID(),
+          version,
+          strategyName: strategy.name,
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          strategy: strategyWithDates,
+          result: backtestResult,
+          createdAt: new Date().toISOString(),
+        };
+        onAddRun(run);
+      }
 
       // 4. Send backtest results to AI for analysis
       const mt = backtestResult.metrics;

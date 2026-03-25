@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { BacktestRun } from '@ai-trading/shared';
 import { ChatSession } from '../types/chat';
 
 const STORAGE_KEY = 'ai-trading-sessions';
@@ -84,6 +85,43 @@ export function useChatSessions() {
     [activeSessionId],
   );
 
+  const addBacktestRun = useCallback(
+    (sessionId: string, run: BacktestRun) => {
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.id !== sessionId) return s;
+          const runs = [...(s.backtestRuns ?? []), run];
+          return {
+            ...s,
+            backtestRuns: runs,
+            activeRunId: run.id,
+            backtestResult: run.result,
+          };
+        }),
+      );
+    },
+    [],
+  );
+
+  const setActiveRun = useCallback(
+    (sessionId: string, runId: string) => {
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.id !== sessionId) return s;
+          const run = s.backtestRuns?.find((r) => r.id === runId);
+          if (!run) return s;
+          return {
+            ...s,
+            activeRunId: runId,
+            backtestResult: run.result,
+            strategy: run.strategy,
+          };
+        }),
+      );
+    },
+    [],
+  );
+
   return {
     sessions,
     activeSession,
@@ -91,5 +129,7 @@ export function useChatSessions() {
     selectSession,
     updateSession,
     deleteSession,
+    addBacktestRun,
+    setActiveRun,
   };
 }

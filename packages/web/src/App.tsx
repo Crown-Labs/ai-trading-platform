@@ -6,6 +6,7 @@ import BacktestStats from './components/BacktestStats';
 import BacktestChart from './components/BacktestChart';
 import TradeTable from './components/TradeTable';
 import BacktestHeatmap from './components/BacktestHeatmap';
+import BacktestVersionNav from './components/BacktestVersionNav';
 import { useChatSessions } from './hooks/useChatSessions';
 import { ChatSession } from './types/chat';
 
@@ -17,6 +18,8 @@ function App() {
     selectSession,
     updateSession,
     deleteSession,
+    addBacktestRun,
+    setActiveRun,
   } = useChatSessions();
 
   const handleUpdate = (partial: Partial<ChatSession>) => {
@@ -25,16 +28,21 @@ function App() {
     }
   };
 
-  const strategy = activeSession?.strategy ?? null;
-  const backtestResult = activeSession?.backtestResult ?? null;
+  const activeRun =
+    activeSession?.backtestRuns?.find(
+      (r) => r.id === activeSession.activeRunId,
+    ) ?? null;
+  const backtestResult = activeRun?.result ?? activeSession?.backtestResult ?? null;
   const candles = activeSession?.candles ?? [];
+  const strategy =
+    activeRun?.strategy ?? activeSession?.strategy ?? null;
 
   return (
     <div className="h-screen bg-dark-900 flex flex-col overflow-hidden">
       <Header />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar — fixed height, scrollable */}
+        {/* Sidebar */}
         <div className="w-64 flex-shrink-0 bg-dark-800 border-r border-dark-700 p-4 overflow-y-auto">
           <ChatSidebar
             sessions={sessions}
@@ -45,23 +53,44 @@ function App() {
           />
         </div>
 
-        {/* Left col: Chat — fixed, does not scroll */}
-        <div className="flex-shrink-0 border-r border-dark-700 p-4 flex flex-col overflow-hidden" style={{ width: '520px' }}>
+        {/* Left col: Chat */}
+        <div
+          className="flex-shrink-0 border-r border-dark-700 p-4 flex flex-col overflow-hidden"
+          style={{ width: '520px' }}
+        >
           {activeSession ? (
-            <ChatPanel session={activeSession} onUpdate={handleUpdate} />
+            <ChatPanel
+              session={activeSession}
+              onUpdate={handleUpdate}
+              onAddRun={(run) => addBacktestRun(activeSession.id, run)}
+            />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center px-4">
-              <p className="text-gray-500 text-sm mb-1">Select or create a chat</p>
-              <p className="text-gray-600 text-xs">Use the sidebar on the left</p>
+              <p className="text-gray-500 text-sm mb-1">
+                Select or create a chat
+              </p>
+              <p className="text-gray-600 text-xs">
+                Use the sidebar on the left
+              </p>
             </div>
           )}
         </div>
 
-        {/* Right col: Results — scrollable */}
+        {/* Right col: Results */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {activeSession && (
             <>
               {strategy && <StrategyDSLViewer strategy={strategy} />}
+
+              {(activeSession.backtestRuns?.length ?? 0) > 0 && (
+                <BacktestVersionNav
+                  runs={activeSession.backtestRuns!}
+                  activeRunId={activeSession.activeRunId}
+                  onSelect={(runId) =>
+                    setActiveRun(activeSession.id, runId)
+                  }
+                />
+              )}
 
               {backtestResult && (
                 <>
@@ -72,7 +101,9 @@ function App() {
                       candles={candles}
                       trades={backtestResult.trades}
                       symbol={strategy?.market?.symbol ?? 'BTCUSDT'}
-                      defaultTimeframe={strategy?.market?.timeframe ?? '1h'}
+                      defaultTimeframe={
+                        strategy?.market?.timeframe ?? '1h'
+                      }
                     />
                   )}
                   <TradeTable trades={backtestResult.trades} />
@@ -81,8 +112,13 @@ function App() {
 
               {!strategy && !backtestResult && (
                 <div className="card text-center py-20">
-                  <p className="text-gray-500 text-lg mb-2">No backtest results yet</p>
-                  <p className="text-gray-600 text-sm">Describe a strategy in the chat panel, then click "Run Backtest"</p>
+                  <p className="text-gray-500 text-lg mb-2">
+                    No backtest results yet
+                  </p>
+                  <p className="text-gray-600 text-sm">
+                    Describe a strategy in the chat panel, then click "Run
+                    Backtest"
+                  </p>
                 </div>
               )}
             </>
