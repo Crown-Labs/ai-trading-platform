@@ -260,6 +260,7 @@ Please analyze these results and suggest specific improvements to optimize the s
           setStreamingText('');
           // Parse new strategy suggestion from AI analysis response
           const suggestedStrategy = parseStrategyFromResponse(fullText);
+          console.log('[Backtest] suggestedStrategy from analysis:', suggestedStrategy?.name ?? 'null');
           onUpdate({
             messages: [
               ...messagesWithRun,
