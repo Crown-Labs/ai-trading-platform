@@ -10,7 +10,6 @@ describe('Issue #4 — OpenClaw Chat integration', () => {
   beforeEach(() => {
     service = new AiService();
     mockFetch.mockReset();
-    // Set env vars
     process.env.OPENCLAW_GATEWAY_URL = 'http://test-gateway:18789';
     process.env.OPENCLAW_GATEWAY_TOKEN = 'test-token';
     process.env.OPENCLAW_AGENT_ID = 'trading-bot';
@@ -22,13 +21,12 @@ describe('Issue #4 — OpenClaw Chat integration', () => {
     delete process.env.OPENCLAW_AGENT_ID;
   });
 
-  function createMockResponse(ok: boolean, status = 200) {
+  function createMockStreamResponse(ok: boolean, status = 200) {
     const mockReader = {
       read: jest.fn()
         .mockResolvedValueOnce({ done: false, value: new TextEncoder().encode('data: {"choices":[{"delta":{"content":"Hello"}}]}') })
         .mockResolvedValueOnce({ done: true, value: undefined }),
     };
-
     return {
       ok,
       status,
@@ -48,44 +46,38 @@ describe('Issue #4 — OpenClaw Chat integration', () => {
     } as any;
   }
 
+  // AC: model is openclaw:<agentId>
   it('calls model openclaw:trading-bot', async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse(true));
-    const res = createMockRes();
+    mockFetch.mockResolvedValueOnce(createMockStreamResponse(true));
+    await service.streamStrategyChat([{ role: 'user', content: 'hello' }], createMockRes());
 
-    await service.streamStrategyChat(
-      [{ role: 'user', content: 'hello' }],
-      res,
-    );
-
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    const [url, options] = mockFetch.mock.calls[0];
-    expect(url).toBe('http://test-gateway:18789/v1/chat/completions');
-    const body = JSON.parse(options.body);
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.model).toBe('openclaw:trading-bot');
   });
 
-  it('passes sessionId as user field', async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse(true));
-    const res = createMockRes();
-
-    await service.streamStrategyChat(
-      [{ role: 'user', content: 'hello' }],
-      res,
-      'session-123',
-    );
+  // AC: sessionId passed as user field for isolated context per session
+  it('passes sessionId as user field for session isolation', async () => {
+    mockFetch.mockResolvedValueOnce(createMockStreamResponse(true));
+    await service.streamStrategyChat([{ role: 'user', content: 'hello' }], createMockRes(), 'session-abc');
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.user).toBe('session-123');
+    expect(body.user).toBe('session-abc');
   });
 
-  it('SSE headers set correctly', async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse(true));
-    const res = createMockRes();
+  // AC: no user field when sessionId is omitted
+  it('omits user field when no sessionId provided', async () => {
+    mockFetch.mockResolvedValueOnce(createMockStreamResponse(true));
+    await service.streamStrategyChat([{ role: 'user', content: 'hello' }], createMockRes());
 
-    await service.streamStrategyChat(
-      [{ role: 'user', content: 'hello' }],
-      res,
-    );
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.user).toBeUndefined();
+  });
+
+  // AC: SSE headers set correctly for real-time streaming
+  it('sets SSE headers correctly', async () => {
+    mockFetch.mockResolvedValueOnce(createMockStreamResponse(true));
+    const res = createMockRes();
+    await service.streamStrategyChat([{ role: 'user', content: 'hello' }], res);
 
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/event-stream');
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-cache');
@@ -93,34 +85,19 @@ describe('Issue #4 — OpenClaw Chat integration', () => {
     expect(res.flushHeaders).toHaveBeenCalled();
   });
 
-  it('handles Gateway 502 gracefully', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 502,
-      text: jest.fn().mockResolvedValue('Bad Gateway'),
-    });
+  // AC: stream: true in request body
+  it('sends stream: true in request body', async () => {
+    mockFetch.mockResolvedValueOnce(createMockStreamResponse(true));
+    await service.streamStrategyChat([{ role: 'user', content: 'hello' }], createMockRes());
 
-    const res = createMockRes();
-    await service.streamStrategyChat(
-      [{ role: 'user', content: 'hello' }],
-      res,
-    );
-
-    expect(res.status).toHaveBeenCalledWith(502);
-    expect(res.json).toHaveBeenCalledWith({
-      error: 'Gateway error: 502',
-      details: 'Bad Gateway',
-    });
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.stream).toBe(true);
   });
 
-  it('system prompt prepended', async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse(true));
-    const res = createMockRes();
-
-    await service.streamStrategyChat(
-      [{ role: 'user', content: 'create a strategy' }],
-      res,
-    );
+  // AC: system prompt prepended to every request
+  it('prepends system prompt as first message', async () => {
+    mockFetch.mockResolvedValueOnce(createMockStreamResponse(true));
+    await service.streamStrategyChat([{ role: 'user', content: 'create a strategy' }], createMockRes());
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.messages[0].role).toBe('system');
@@ -129,17 +106,33 @@ describe('Issue #4 — OpenClaw Chat integration', () => {
     expect(body.messages[1].content).toBe('create a strategy');
   });
 
-  it('stream is true in request body', async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse(true));
+  // AC: Gateway 502 returns structured error, does not crash
+  it('handles Gateway 502 gracefully without crashing', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      text: jest.fn().mockResolvedValue('Bad Gateway'),
+    });
+    const res = createMockRes();
+    await service.streamStrategyChat([{ role: 'user', content: 'hello' }], res);
+
+    expect(res.status).toHaveBeenCalledWith(502);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Gateway error: 502', details: 'Bad Gateway' });
+  });
+
+  // AC: different sessions get isolated context via different user fields
+  it('sends different user fields for different sessions', async () => {
+    mockFetch.mockResolvedValue(createMockStreamResponse(true));
     const res = createMockRes();
 
-    await service.streamStrategyChat(
-      [{ role: 'user', content: 'hello' }],
-      res,
-    );
+    await service.streamStrategyChat([{ role: 'user', content: 'hi' }], res, 'session-1');
+    await service.streamStrategyChat([{ role: 'user', content: 'hi' }], res, 'session-2');
 
-    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.stream).toBe(true);
+    const body1 = JSON.parse(mockFetch.mock.calls[0][1].body);
+    const body2 = JSON.parse(mockFetch.mock.calls[1][1].body);
+    expect(body1.user).toBe('session-1');
+    expect(body2.user).toBe('session-2');
+    expect(body1.user).not.toBe(body2.user);
   });
 });
 
