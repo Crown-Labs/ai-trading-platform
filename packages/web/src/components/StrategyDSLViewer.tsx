@@ -1,21 +1,42 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { StrategyDSL } from '@ai-trading/shared';
 import YAML from 'yaml';
+import { generatePineScript } from '../utils/pine-script-generator';
 
 interface StrategyDSLViewerProps {
   strategy: StrategyDSL;
 }
 
 export default function StrategyDSLViewer({ strategy }: StrategyDSLViewerProps) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'yaml' | 'pine' | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const ind = strategy.indicator ?? {};
   const indicators = [
-    strategy.indicator?.rsi != null && `RSI(${strategy.indicator.rsi})`,
-    strategy.indicator?.ema_fast != null && `EMA(${strategy.indicator.ema_fast})`,
-    strategy.indicator?.ema_slow != null && `EMA(${strategy.indicator.ema_slow})`,
+    ind.rsi != null && `RSI(${ind.rsi})`,
+    ind.ema_fast != null && `EMA_F(${ind.ema_fast})`,
+    ind.ema_slow != null && `EMA_S(${ind.ema_slow})`,
+    ind.sma != null && `SMA(${ind.sma})`,
+    ind.macd != null && `MACD(${(ind.macd as any).fast ?? 12},${(ind.macd as any).slow ?? 26})`,
+    ind.bbands != null && `BB(${(ind.bbands as any).period ?? 20},${(ind.bbands as any).stddev ?? 2})`,
+    ind.stoch != null && `STOCH(${(ind.stoch as any).kPeriod ?? 14})`,
+    ind.adx != null && `ADX(${ind.adx})`,
+    ind.atr != null && `ATR(${ind.atr})`,
   ].filter(Boolean) as string[];
 
-  const handleCopy = () => {
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleCopyYAML = () => {
     const yaml = YAML.stringify({
       strategy: { name: strategy.name },
       market: strategy.market,
@@ -26,8 +47,17 @@ export default function StrategyDSLViewer({ strategy }: StrategyDSLViewerProps) 
       ...(strategy.execution && { execution: strategy.execution }),
     });
     navigator.clipboard.writeText(yaml);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied('yaml');
+    setDropdownOpen(false);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const handleCopyPine = () => {
+    const pine = generatePineScript(strategy);
+    navigator.clipboard.writeText(pine);
+    setCopied('pine');
+    setDropdownOpen(false);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   return (
@@ -37,16 +67,48 @@ export default function StrategyDSLViewer({ strategy }: StrategyDSLViewerProps) 
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-primary-400 uppercase tracking-wider">Strategy DSL</span>
         </div>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1 text-xs px-3 py-1 rounded-md bg-dark-700 hover:bg-dark-600 text-gray-400 hover:text-white transition-colors"
-        >
-          {copied ? (
-            <>&#10003; <span>Copied</span></>
-          ) : (
-            <>&#9112; <span>Copy</span></>
+
+        {/* Copy dropdown */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="flex items-center gap-1 text-xs px-3 py-1 rounded-md bg-dark-700 hover:bg-dark-600 text-gray-400 hover:text-white transition-colors"
+          >
+            {copied === 'yaml' ? (
+              <>&#10003; <span>YAML Copied</span></>
+            ) : copied === 'pine' ? (
+              <>&#10003; <span>Pine Copied</span></>
+            ) : (
+              <><span>&#9112; Copy</span> <span className="text-gray-600">▾</span></>
+            )}
+          </button>
+
+          {dropdownOpen && (
+            <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-md bg-dark-800 border border-dark-600 shadow-lg overflow-hidden">
+              <button
+                onClick={handleCopyYAML}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-300 hover:bg-dark-700 hover:text-white transition-colors"
+              >
+                <span className="text-primary-400">⎘</span>
+                <div className="text-left">
+                  <div className="font-medium">Copy DSL</div>
+                  <div className="text-gray-500">YAML format</div>
+                </div>
+              </button>
+              <div className="h-px bg-dark-600" />
+              <button
+                onClick={handleCopyPine}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-300 hover:bg-dark-700 hover:text-white transition-colors"
+              >
+                <span className="text-green-400">🌲</span>
+                <div className="text-left">
+                  <div className="font-medium">Copy Pine Script</div>
+                  <div className="text-gray-500">TradingView v5</div>
+                </div>
+              </button>
+            </div>
           )}
-        </button>
+        </div>
       </div>
 
       {/* Strategy Name */}
