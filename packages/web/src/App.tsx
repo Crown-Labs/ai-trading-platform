@@ -96,8 +96,8 @@ function App() {
                 <>
                   <BacktestStats metrics={backtestResult.metrics} />
 
-                  {/* trades may be stripped from localStorage — check metrics to distinguish */}
-                  {backtestResult.trades == null && backtestResult.metrics.totalTrades > 0 ? (
+                  {/* _isStripped: trades removed for localStorage quota — use flag for explicit check */}
+                  {backtestResult._isStripped ? (
                     <div className="card flex items-center gap-3 py-4 px-5">
                       <span className="text-yellow-400 text-lg">⚠️</span>
                       <div>

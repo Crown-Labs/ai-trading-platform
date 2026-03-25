@@ -27,8 +27,9 @@ function stripForStorage(sessions: ChatSession[]): ChatSession[] {
       ...run,
       result: {
         ...run.result,
-        trades: undefined as any, // strip trades (large), keep metrics; UI checks metrics.totalTrades > 0
+        trades: undefined as any, // strip trades (large), keep metrics
         dataRange: undefined,
+        _isStripped: true,
       },
     })),
   }));

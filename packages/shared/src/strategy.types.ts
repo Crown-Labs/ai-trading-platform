@@ -99,6 +99,7 @@ export interface BacktestResult {
   trades: Trade[];
   metrics: BacktestMetrics;
   dataRange?: BacktestDataRange;
+  _isStripped?: boolean; // true when trades/candles stripped for localStorage storage
 }
 
 export interface BacktestRun {
