@@ -13,8 +13,39 @@ function loadSessions(): ChatSession[] {
   }
 }
 
+/**
+ * Strip large transient data before saving to localStorage.
+ * trades + candles are stored in IndexedDB (see lib/trade-store.ts)
+ * Only metadata (strategy, metrics, messages) stays in localStorage.
+ */
+function stripForStorage(sessions: ChatSession[]): ChatSession[] {
+  return sessions.map((s) => ({
+    ...s,
+    candles: undefined,
+    backtestRuns: s.backtestRuns?.map((run) => ({
+      ...run,
+      result: {
+        ...run.result,
+        trades: undefined as any,
+        dataRange: undefined,
+      },
+    })),
+  }));
+}
+
 function saveSessions(sessions: ChatSession[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stripForStorage(sessions)));
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      const trimmed = sessions.slice(0, Math.max(1, Math.floor(sessions.length / 2)));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stripForStorage(trimmed)));
+      } catch {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+  }
 }
 
 export function useChatSessions() {
