@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { ChatSession } from '../types/chat';
+import ConfirmDialog from './ConfirmDialog';
 
 interface ChatSidebarProps {
   sessions: ChatSession[];
@@ -30,6 +32,9 @@ export default function ChatSidebar({
   onCreate,
   onDelete,
 }: ChatSidebarProps) {
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const pendingSession = sessions.find((s) => s.id === pendingDeleteId);
+
   return (
     <div className="flex flex-col h-full">
       <button onClick={onCreate} className="btn-primary w-full mb-4 text-sm">
@@ -63,17 +68,36 @@ export default function ChatSidebar({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDelete(session.id);
+                  setPendingDeleteId(session.id);
                 }}
-                className="ml-2 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                className="ml-2 p-1 rounded text-gray-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
                 title="Delete chat"
               >
-                &times;
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                  <path d="M10 11v6M14 11v6"/>
+                  <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                </svg>
               </button>
             </div>
           );
         })}
       </div>
+
+      {/* Custom confirm dialog */}
+      {pendingDeleteId && pendingSession && (
+        <ConfirmDialog
+          title="Delete chat?"
+          message={`"${pendingSession.title}" and all its backtest history will be permanently deleted.`}
+          confirmLabel="Delete"
+          onConfirm={() => {
+            onDelete(pendingDeleteId);
+            setPendingDeleteId(null);
+          }}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
     </div>
   );
 }

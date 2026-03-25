@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { BacktestRun } from '@ai-trading/shared';
 import { ChatSession } from '../types/chat';
+import { deleteRunsForSession } from '../lib/trade-store';
 
 const STORAGE_KEY = 'ai-trading-sessions';
 
@@ -105,13 +106,26 @@ export function useChatSessions() {
 
   const deleteSession = useCallback(
     (id: string) => {
-      setSessions((prev) => prev.filter((s) => s.id !== id));
-      if (activeSessionId === id) {
-        setSessions((prev) => {
-          setActiveSessionId(prev[0]?.id ?? null);
-          return prev;
-        });
-      }
+      setSessions((prev) => {
+        // 1. Find session BEFORE removing it
+        const session = prev.find((s) => s.id === id);
+
+        // 2. Cleanup IndexedDB: delete all trades/candles for every run in this session
+        if (session?.backtestRuns?.length) {
+          const runIds = session.backtestRuns.map((r) => r.id);
+          deleteRunsForSession(runIds).catch(() => {});
+        }
+
+        // 3. Remove from state (→ triggers localStorage save via useEffect)
+        const remaining = prev.filter((s) => s.id !== id);
+
+        // 4. Switch active session if deleted the current one
+        if (activeSessionId === id) {
+          setActiveSessionId(remaining[0]?.id ?? null);
+        }
+
+        return remaining;
+      });
     },
     [activeSessionId],
   );
