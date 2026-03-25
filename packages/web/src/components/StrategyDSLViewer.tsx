@@ -109,7 +109,7 @@ export default function StrategyDSLViewer({ strategy }: StrategyDSLViewerProps) 
 
       {/* Risk Parameters */}
       <div className="border-t border-dark-700 pt-3">
-        <div className="grid grid-cols-5 gap-2 text-center">
+        <div className="grid grid-cols-6 gap-2 text-center">
           <div>
             <p className="text-gray-500 text-xs mb-1">SL</p>
             <p className="text-red-400 text-sm font-semibold">{strategy.risk.stop_loss}%</p>
@@ -132,6 +132,14 @@ export default function StrategyDSLViewer({ strategy }: StrategyDSLViewerProps) 
               {strategy.execution?.commission != null
                 ? `${(strategy.execution.commission * 100).toFixed(2)}%`
                 : '0.10%'}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-500 text-xs mb-1">Slippage</p>
+            <p className="text-white text-sm font-semibold">
+              {strategy.execution?.slippage != null
+                ? `${(strategy.execution.slippage * 100).toFixed(2)}%`
+                : '0.05%'}
             </p>
           </div>
         </div>
