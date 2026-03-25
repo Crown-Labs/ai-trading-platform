@@ -26,41 +26,27 @@ function extractStrategyYaml(text: string): string | null {
   const yamlMatch = text.match(/```yaml\s*\n([\s\S]*?)```/);
   if (yamlMatch && isStrategyYaml(yamlMatch[1])) return yamlMatch[1];
 
-  // Pattern 3: YAML block that contains BOTH "strategy:/name:" AND "market:" keys
-  // Find all consecutive YAML-like lines (key: value) starting from "strategy:"
-  // Must have at least "name" and "market" to be a strategy
-  const lines = text.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    // Start of YAML block: line is "strategy:" with next line indented (name:)
-    if (/^strategy:\s*$/.test(line) && i + 1 < lines.length && /^\s+name:/.test(lines[i + 1])) {
-      const blockLines: string[] = [];
-      let j = i;
-      let blankCount = 0;
-      while (j < lines.length) {
-        const l = lines[j];
-        if (l.trim() === '') {
-          blankCount++;
-          if (blankCount >= 2) break;
-          blockLines.push(l);
-          j++;
-          continue;
-        }
-        blankCount = 0;
-        // Stop if we hit a non-YAML line (sentence text)
-        if (blockLines.length > 0 && !/^[\s\-]/.test(l) && !/^\w[\w_]*:/.test(l)) break;
-        blockLines.push(l);
-        j++;
+  // Pattern 3: Plain YAML block starting with 'strategy:' anywhere in text
+  const strategyIdx = text.indexOf('strategy:');
+  if (strategyIdx !== -1) {
+    const yamlText = text.substring(strategyIdx);
+    const lines = yamlText.split('\n');
+    const blockLines: string[] = [];
+    let consecutiveBlanks = 0;
+    for (const line of lines) {
+      if (line.trim() === '') {
+        consecutiveBlanks++;
+        if (consecutiveBlanks >= 2) break;
+        blockLines.push(line);
+        continue;
       }
-      const block = blockLines.join('\n').trim();
-      if (block && isStrategyYaml(block)) return block;
+      consecutiveBlanks = 0;
+      if (blockLines.length > 0 && !/^[\s#\-"']/.test(line) && !/^\w[\w_]*:/.test(line)) {
+        break;
+      }
+      blockLines.push(line);
     }
-  }
-
-  // Pattern 4: Bare YAML starting with "name:" then "market:"
-  const nameFirstMatch = text.match(/(?:^|\n)(name:\s*\S[\s\S]*?market:[\s\S]*?(?=\n\n\n|\n---|\n#|$))/);
-  if (nameFirstMatch) {
-    const block = nameFirstMatch[1].trim();
+    const block = blockLines.join('\n').trim();
     if (block && isStrategyYaml(block)) return block;
   }
 
