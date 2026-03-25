@@ -2,6 +2,7 @@ export interface ExecutionParams {
   commission: number;   // % as decimal e.g. 0.001 for 0.1%
   slippage: number;     // % as decimal e.g. 0.0005 for 0.05%
   leverage: number;     // 1 = spot, >1 = futures
+  execution_model?: 'next_bar' | 'same_bar';  // default: 'next_bar'
 }
 
 export interface StrategyDSL {
