@@ -2,6 +2,7 @@ export interface ExecutionParams {
   commission: number;   // % as decimal e.g. 0.001 for 0.1%
   slippage: number;     // % as decimal e.g. 0.0005 for 0.05%
   leverage: number;     // 1 = spot, >1 = futures
+  execution_model?: 'next_bar' | 'same_bar';  // default: 'next_bar'
 }
 
 export interface StrategyDSL {
@@ -12,6 +13,7 @@ export interface StrategyDSL {
     timeframe: string;
   };
   indicator: {
+    // Original indicators
     rsi?: number;
     ema_fast?: number;
     ema_slow?: number;
@@ -21,12 +23,32 @@ export interface StrategyDSL {
     stoch?: { kPeriod: number; dPeriod: number };
     atr?: number;
     adx?: number;
+    // New indicators
+    cci?: number;
+    wma?: number;
+    vwap?: number;
+    obv?: Record<string, never>; // OBV uses volume automatically
+    roc?: number;
+    stochrsi?: number;
+    dema?: number;
+    tema?: number;
+    hma?: number;
+    willr?: number;
+    mfi?: number;
+    kc?: { period: number; multiple: number };
+    aroon?: number;
+    psar?: { step: number; max: number };
+    cmf?: number;
+    // Allow any other indicators dynamically
+    [key: string]: any;
   };
   entry: {
     condition: string[];
+    short_condition?: string[];
   };
   exit: {
     condition: string[];
+    short_condition?: string[];
   };
   risk: {
     stop_loss: number;
@@ -61,10 +83,33 @@ export interface BacktestMetrics {
   totalFees: number;
 }
 
+export interface BacktestDataRange {
+  requestedStart: string;   // ISO date from strategy.startDate
+  requestedEnd: string;     // ISO date from strategy.endDate
+  actualStart: string;      // ISO date of first candle
+  actualEnd: string;        // ISO date of last candle
+  totalCandles: number;
+  requestedDays: number;
+  actualDays: number;
+  isComplete: boolean;      // true if actual >= requested
+}
+
 export interface BacktestResult {
   strategy: StrategyDSL;
   trades: Trade[];
   metrics: BacktestMetrics;
+  dataRange?: BacktestDataRange;
+}
+
+export interface BacktestRun {
+  id: string;
+  version: number;
+  strategyName: string;
+  startDate: string;
+  endDate: string;
+  strategy: StrategyDSL;
+  result: BacktestResult;
+  createdAt: string;
 }
 
 export interface OHLCVCandle {

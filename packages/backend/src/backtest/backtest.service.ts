@@ -1,13 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   StrategyDSL,
   BacktestResult,
+  BacktestDataRange,
   Trade,
-  BacktestMetrics,
   OHLCVCandle,
 } from '@ai-trading/shared';
 import { MarketDataService } from '../market-data/market-data.service';
-import { IndicatorsService } from '../indicators/indicators.service';
+import { IndicatorEngine } from './engines/indicator.engine';
+import { SignalEngine } from './engines/signal.engine';
+import { RiskEngine } from './engines/risk.engine';
+import { ExecutionEngine, ExecutionParams } from './engines/execution.engine';
+import { MetricsEngine } from './engines/metrics.engine';
 
 const DEFAULT_COMMISSION = 0.001;
 const DEFAULT_SLIPPAGE = 0.0005;
@@ -16,286 +20,347 @@ const INITIAL_CAPITAL = 10000;
 
 @Injectable()
 export class BacktestService {
+  private readonly logger = new Logger(BacktestService.name);
+
   constructor(
     private readonly marketData: MarketDataService,
-    private readonly indicators: IndicatorsService,
+    private readonly indicatorEngine: IndicatorEngine,
+    private readonly signalEngine: SignalEngine,
+    private readonly riskEngine: RiskEngine,
+    private readonly executionEngine: ExecutionEngine,
+    private readonly metricsEngine: MetricsEngine,
   ) {}
 
-  async runBacktest(strategy: StrategyDSL): Promise<BacktestResult> {
-    const startTime = strategy.startDate ? new Date(strategy.startDate).getTime() : undefined;
-    const endTime = strategy.endDate ? new Date(strategy.endDate).getTime() : undefined;
+  async runBacktest(inputStrategy: StrategyDSL): Promise<BacktestResult> {
+    const startTime = inputStrategy.startDate
+      ? new Date(inputStrategy.startDate).getTime()
+      : undefined;
+    const endTime = inputStrategy.endDate
+      ? new Date(inputStrategy.endDate).getTime()
+      : undefined;
     const candles = await this.marketData.getCandles(
-      strategy.market.symbol,
-      strategy.market.timeframe,
+      inputStrategy.market.symbol,
+      inputStrategy.market.timeframe,
       startTime,
       endTime,
-      500,
+      startTime ? undefined : 500,
     );
 
-    const closes = candles.map((c) => c.close);
-    const highs = candles.map((c) => c.high);
-    const lows = candles.map((c) => c.low);
-    const indicatorValues: Record<string, number[]> = {};
+    this.logger.log(`✅ Fetched ${candles.length} candles for ${inputStrategy.market.symbol} (${inputStrategy.market.timeframe})`);
+    if (startTime && endTime) {
+      const days = Math.round((endTime - startTime) / (1000 * 60 * 60 * 24));
+      this.logger.log(`📅 Date range: ${days} days (${new Date(startTime).toISOString().split('T')[0]} to ${new Date(endTime).toISOString().split('T')[0]})`);
+    }
 
-    if (strategy.indicator.rsi) {
-      indicatorValues['rsi'] = this.indicators.calculateRSI(
-        closes,
-        strategy.indicator.rsi,
-      );
-    }
-    if (strategy.indicator.ema_fast) {
-      indicatorValues['ema_fast'] = this.indicators.calculateEMA(
-        closes,
-        strategy.indicator.ema_fast,
-      );
-    }
-    if (strategy.indicator.ema_slow) {
-      indicatorValues['ema_slow'] = this.indicators.calculateEMA(
-        closes,
-        strategy.indicator.ema_slow,
-      );
-    }
-    if (strategy.indicator.sma) {
-      indicatorValues['sma'] = this.indicators.calculateSMA(
-        closes,
-        strategy.indicator.sma,
-      );
-    }
-    if (strategy.indicator.macd) {
-      const m = strategy.indicator.macd;
-      const result = this.indicators.calculateMACD(closes, m.fast, m.slow, m.signal);
-      indicatorValues['macd'] = result.macd;
-      indicatorValues['macd_signal'] = result.signal;
-      indicatorValues['macd_histogram'] = result.histogram;
-    }
-    if (strategy.indicator.bbands) {
-      const b = strategy.indicator.bbands;
-      const result = this.indicators.calculateBBands(closes, b.period, b.stddev ?? 2);
-      indicatorValues['bb_upper'] = result.upper;
-      indicatorValues['bb_middle'] = result.middle;
-      indicatorValues['bb_lower'] = result.lower;
-    }
-    if (strategy.indicator.stoch) {
-      const s = strategy.indicator.stoch;
-      const result = this.indicators.calculateStoch(highs, lows, closes, s.kPeriod ?? 14, s.dPeriod ?? 3);
-      indicatorValues['stoch_k'] = result.k;
-      indicatorValues['stoch_d'] = result.d;
-    }
-    if (strategy.indicator.atr) {
-      indicatorValues['atr'] = this.indicators.calculateATR(highs, lows, closes, strategy.indicator.atr);
-    }
-    if (strategy.indicator.adx) {
-      indicatorValues['adx'] = this.indicators.calculateADX(highs, lows, strategy.indicator.adx);
-    }
-    indicatorValues['close'] = closes;
-    indicatorValues['volume'] = candles.map((c) => c.volume);
+    const { values: indicatorValues, indicator } =
+      this.indicatorEngine.autoCompute(candles, inputStrategy);
+    const strategy = { ...inputStrategy, indicator };
 
-    const commission = strategy.execution?.commission ?? DEFAULT_COMMISSION;
-    const slippage = strategy.execution?.slippage ?? DEFAULT_SLIPPAGE;
-    const leverage = strategy.execution?.leverage ?? DEFAULT_LEVERAGE;
+    // Log indicator warm-up info
+    const indicatorNames = Object.keys(indicator);
+    this.logger.log(`📊 Computing indicators: ${indicatorNames.join(', ')}`);
+
+    // Check for NaN values in indicators (indicates warm-up period)
+    const firstValidIndex = this.findFirstValidIndex(indicatorValues);
+    if (firstValidIndex > 0) {
+      this.logger.warn(`⚠️  First ${firstValidIndex} candles have invalid indicators (warm-up period)`);
+      this.logger.warn(`⚠️  Only ${candles.length - firstValidIndex} candles available for trading`);
+    }
+
+    const execParams: ExecutionParams = {
+      commission: strategy.execution?.commission ?? DEFAULT_COMMISSION,
+      slippage: strategy.execution?.slippage ?? DEFAULT_SLIPPAGE,
+      leverage: strategy.execution?.leverage ?? DEFAULT_LEVERAGE,
+      positionSize: strategy.risk.position_size,
+    };
+
+    const useNextBar =
+      (strategy.execution?.execution_model ?? 'next_bar') === 'next_bar';
 
     const trades = this.simulateTrades(
       candles,
       indicatorValues,
-      strategy.entry.condition,
-      strategy.exit.condition,
+      strategy.entry,
+      strategy.exit,
       strategy.risk,
-      commission,
-      slippage,
-      leverage,
+      execParams,
+      useNextBar,
     );
 
-    const metrics = this.calculateMetrics(trades);
+    this.logger.log(`🎯 Backtest complete: ${trades.length} trades executed`);
+    if (trades.length === 0) {
+      this.logger.warn(`⚠️  NO TRADES FOUND!`);
+      this.logger.warn(`   Possible reasons:`);
+      this.logger.warn(`   1. Date range too short (need > 34 days for EMA 200 warm-up)`);
+      this.logger.warn(`   2. Entry conditions never met`);
+      this.logger.warn(`   3. Indicators have too many NaN values`);
+    }
 
-    return { strategy, trades, metrics };
+    const metrics = this.metricsEngine.calculate(trades);
+
+    // Build data coverage info
+    const dataRange: BacktestDataRange | undefined =
+      inputStrategy.startDate && inputStrategy.endDate && candles.length > 0
+        ? (() => {
+            const reqStart = inputStrategy.startDate!;
+            const reqEnd = inputStrategy.endDate!;
+            const actualStart = new Date(candles[0].timestamp).toISOString().split('T')[0];
+            const actualEnd = new Date(candles[candles.length - 1].timestamp).toISOString().split('T')[0];
+            const requestedDays = Math.round(
+              (new Date(reqEnd).getTime() - new Date(reqStart).getTime()) / (1000 * 60 * 60 * 24),
+            );
+            const actualDays = Math.round(
+              (new Date(actualEnd).getTime() - new Date(actualStart).getTime()) / (1000 * 60 * 60 * 24),
+            );
+            const isComplete = actualDays >= requestedDays * 0.95; // 5% tolerance
+            return { requestedStart: reqStart, requestedEnd: reqEnd, actualStart, actualEnd, totalCandles: candles.length, requestedDays, actualDays, isComplete };
+          })()
+        : undefined;
+
+    return { strategy, trades, metrics, dataRange };
   }
 
-  private evaluateCondition(
-    condition: string,
-    indicators: Record<string, number[]>,
-    index: number,
-  ): boolean {
-    try {
-      // Handle crossover(a, b) and crossunder(a, b) patterns
-      const crossMatch = condition.match(
-        /cross(over|under)\((\w+),\s*(\w+)\)/i,
+  private findFirstValidIndex(indicators: Record<string, number[]>): number {
+    // Find first index where all indicators have valid (non-NaN) values
+    if (Object.keys(indicators).length === 0) return 0;
+
+    const firstIndicator = Object.values(indicators)[0];
+    if (!firstIndicator) return 0;
+
+    for (let i = 0; i < firstIndicator.length; i++) {
+      const allValid = Object.values(indicators).every(
+        arr => !isNaN(arr[i]) && arr[i] != null
       );
-      if (crossMatch) {
-        const type = crossMatch[1].toLowerCase();
-        const a = indicators[crossMatch[2]];
-        const b = indicators[crossMatch[3]];
-        if (!a || !b) return false;
-        if (type === 'over')
-          return this.indicators.isCrossover(a, b, index);
-        if (type === 'under')
-          return this.indicators.isCrossunder(a, b, index);
-      }
-
-      // Build vars object with all indicator values at this index
-      const vars: Record<string, number> = {};
-      for (const [key, values] of Object.entries(indicators)) {
-        const val = values[index];
-        if (val === undefined || isNaN(val)) return false;
-        vars[key] = val;
-      }
-
-      // Replace variable names with actual values
-      let expr = condition
-        .replace(/\band\b/gi, '&&')
-        .replace(/\bor\b/gi, '||');
-
-      // Replace known variables (longest first to avoid partial matches)
-      const varNames = Object.keys(vars).sort(
-        (a, b) => b.length - a.length,
-      );
-      for (const name of varNames) {
-        expr = expr.replace(
-          new RegExp(`\\b${name}\\b`, 'g'),
-          String(vars[name]),
-        );
-      }
-
-      // Safe eval using Function
-      return new Function(`"use strict"; return (${expr});`)() as boolean;
-    } catch {
-      return false;
+      if (allValid) return i;
     }
+    return firstIndicator.length;
   }
 
   private simulateTrades(
     candles: OHLCVCandle[],
     indicators: Record<string, number[]>,
-    entryConditions: string[],
-    exitConditions: string[],
+    entry: { condition: string[]; short_condition?: string[] },
+    exit: { condition: string[]; short_condition?: string[] },
     risk: { stop_loss: number; take_profit: number; position_size: number },
-    commission: number,
-    slippage: number,
-    leverage: number,
+    execParams: ExecutionParams,
+    useNextBar: boolean,
   ): Trade[] {
     const trades: Trade[] = [];
-    let inPosition = false;
-    let entryPrice = 0;
-    let entryTime = '';
     let tradeId = 0;
+    let capital = INITIAL_CAPITAL;
 
-    for (let i = 1; i < candles.length; i++) {
-      if (!inPosition) {
-        const entrySignal = entryConditions.every((cond) =>
-          this.evaluateCondition(cond, indicators, i),
+    let longPos: { price: number; time: string } | null = null;
+    let shortPos: { price: number; time: string } | null = null;
+
+    let pendingLongEntry = false;
+    let pendingLongExit = false;
+    let pendingShortEntry = false;
+    let pendingShortExit = false;
+
+    const hasShort = (entry.short_condition?.length ?? 0) > 0;
+    const shortExitConditions = exit.short_condition ?? exit.condition;
+
+    let signalCount = { longEntry: 0, longExit: 0, shortEntry: 0, shortExit: 0 };
+
+    for (let i = 0; i < candles.length; i++) {
+      const candle = candles[i];
+      const timestamp = new Date(candle.timestamp).toISOString();
+
+      // === PHASE 1: Execute pending signals at this bar's open ===
+      if (useNextBar) {
+        if (pendingLongEntry && !longPos) {
+          longPos = { price: candle.open, time: timestamp };
+          pendingLongEntry = false;
+        }
+        if (pendingLongExit && longPos) {
+          tradeId++;
+          const trade = this.executionEngine.closeLong(
+            longPos.price,
+            candle.open,
+            longPos.time,
+            timestamp,
+            tradeId,
+            execParams,
+            capital,
+          );
+          trades.push(trade);
+          capital += trade.pnl;
+          longPos = null;
+          pendingLongExit = false;
+        }
+        if (hasShort) {
+          if (pendingShortEntry && !shortPos) {
+            shortPos = { price: candle.open, time: timestamp };
+            pendingShortEntry = false;
+          }
+          if (pendingShortExit && shortPos) {
+            tradeId++;
+            const trade = this.executionEngine.closeShort(
+              shortPos.price,
+              candle.open,
+              shortPos.time,
+              timestamp,
+              tradeId,
+              execParams,
+              capital,
+            );
+            trades.push(trade);
+            capital += trade.pnl;
+            shortPos = null;
+            pendingShortExit = false;
+          }
+        }
+      }
+
+      // === PHASE 2: Check intrabar SL/TP using high/low ===
+      if (longPos) {
+        const sl = this.riskEngine.checkLongStopLoss(
+          candle,
+          longPos.price,
+          risk.stop_loss,
         );
+        const tp = this.riskEngine.checkLongTakeProfit(
+          candle,
+          longPos.price,
+          risk.take_profit,
+        );
+        // SL takes priority over TP
+        if (sl.triggered || tp.triggered) {
+          const fillPrice = sl.triggered ? sl.fillPrice : tp.fillPrice;
+          tradeId++;
+          const trade = this.executionEngine.closeLong(
+            longPos.price,
+            fillPrice,
+            longPos.time,
+            timestamp,
+            tradeId,
+            execParams,
+            capital,
+          );
+          trades.push(trade);
+          capital += trade.pnl;
+          longPos = null;
+          pendingLongExit = false;
+        }
+      }
+      if (shortPos) {
+        const sl = this.riskEngine.checkShortStopLoss(
+          candle,
+          shortPos.price,
+          risk.stop_loss,
+        );
+        const tp = this.riskEngine.checkShortTakeProfit(
+          candle,
+          shortPos.price,
+          risk.take_profit,
+        );
+        if (sl.triggered || tp.triggered) {
+          const fillPrice = sl.triggered ? sl.fillPrice : tp.fillPrice;
+          tradeId++;
+          const trade = this.executionEngine.closeShort(
+            shortPos.price,
+            fillPrice,
+            shortPos.time,
+            timestamp,
+            tradeId,
+            execParams,
+            capital,
+          );
+          trades.push(trade);
+          capital += trade.pnl;
+          shortPos = null;
+          pendingShortExit = false;
+        }
+      }
 
-        if (entrySignal) {
-          inPosition = true;
-          entryPrice = candles[i].close;
-          entryTime = new Date(candles[i].timestamp).toISOString();
+      // === PHASE 3: Evaluate signals on this bar's close ===
+      // Skip first bar (need previous data for indicators)
+      if (i === 0) continue;
+
+      const signals = this.signalEngine.evaluate(
+        i,
+        indicators,
+        entry.condition,
+        exit.condition,
+        entry.short_condition ?? [],
+        shortExitConditions,
+      );
+
+      // Track signal generation
+      if (signals.longEntry) signalCount.longEntry++;
+      if (signals.longExit) signalCount.longExit++;
+      if (signals.shortEntry) signalCount.shortEntry++;
+      if (signals.shortExit) signalCount.shortExit++;
+
+      if (useNextBar) {
+        // Queue signals for next bar execution
+        if (!longPos && signals.longEntry) pendingLongEntry = true;
+        if (longPos && signals.longExit) pendingLongExit = true;
+        if (hasShort) {
+          if (!shortPos && signals.shortEntry) pendingShortEntry = true;
+          if (shortPos && signals.shortExit) pendingShortExit = true;
         }
       } else {
-        const currentPrice = candles[i].close;
-        const rawPnlPercent =
-          ((currentPrice - entryPrice) / entryPrice) * 100;
-
-        const exitSignal =
-          exitConditions.every((cond) =>
-            this.evaluateCondition(cond, indicators, i),
-          ) ||
-          rawPnlPercent <= -risk.stop_loss ||
-          rawPnlPercent >= risk.take_profit;
-
-        if (exitSignal) {
-          const effectiveEntry = entryPrice * (1 + slippage);
-          const effectiveExit = currentPrice * (1 - slippage);
-          const positionValue =
-            INITIAL_CAPITAL * (risk.position_size / 100) * leverage;
-          const fee = positionValue * commission * 2;
-          const rawPnl =
-            ((effectiveExit - effectiveEntry) / effectiveEntry) *
-            positionValue;
-          const netPnl = rawPnl - fee;
-          const netPnlPercent = (netPnl / INITIAL_CAPITAL) * 100;
-
-          const sign = netPnlPercent >= 0 ? '+' : '\u2212';
-          const formatted = `${sign}${Math.abs(netPnlPercent).toFixed(2)}%`;
-
+        // Same-bar execution (legacy mode)
+        if (!longPos && signals.longEntry) {
+          longPos = { price: candle.close, time: timestamp };
+        }
+        if (longPos && signals.longExit) {
           tradeId++;
-          trades.push({
-            id: tradeId,
-            entryTime,
-            exitTime: new Date(candles[i].timestamp).toISOString(),
-            entryPrice,
-            exitPrice: currentPrice,
-            side: 'long',
-            pnl: parseFloat(netPnl.toFixed(2)),
-            pnlPercent: formatted,
-            fees: parseFloat(fee.toFixed(2)),
-            isWin: netPnl > 0,
-          });
-          inPosition = false;
+          const trade = this.executionEngine.closeLong(
+            longPos.price,
+            candle.close,
+            longPos.time,
+            timestamp,
+            tradeId,
+            execParams,
+            capital,
+          );
+          trades.push(trade);
+          capital += trade.pnl;
+          longPos = null;
+        }
+        if (hasShort) {
+          if (!shortPos && signals.shortEntry) {
+            shortPos = { price: candle.close, time: timestamp };
+          }
+          if (shortPos && signals.shortExit) {
+            tradeId++;
+            const trade = this.executionEngine.closeShort(
+              shortPos.price,
+              candle.close,
+              shortPos.time,
+              timestamp,
+              tradeId,
+              execParams,
+              capital,
+            );
+            trades.push(trade);
+            capital += trade.pnl;
+            shortPos = null;
+          }
         }
       }
     }
 
+    trades.sort((a, b) => a.entryTime.localeCompare(b.entryTime));
+    trades.forEach((t, i) => (t.id = i + 1));
+
+    // Log signal statistics
+    this.logger.log(`📊 Signal Statistics:`);
+    this.logger.log(`   Long Entry Signals: ${signalCount.longEntry}`);
+    this.logger.log(`   Long Exit Signals: ${signalCount.longExit}`);
+    if (hasShort) {
+      this.logger.log(`   Short Entry Signals: ${signalCount.shortEntry}`);
+      this.logger.log(`   Short Exit Signals: ${signalCount.shortExit}`);
+    }
+    this.logger.log(`   Trades Executed: ${trades.length}`);
+
+    if (signalCount.longEntry === 0 && signalCount.shortEntry === 0) {
+      this.logger.warn(`⚠️  NO ENTRY SIGNALS generated!`);
+      this.logger.warn(`   Check your entry conditions and indicator values`);
+    }
+
     return trades;
-  }
-
-  private calculateMetrics(trades: Trade[]): BacktestMetrics {
-    if (trades.length === 0) {
-      return {
-        totalTrades: 0,
-        winRate: 0,
-        totalReturn: 0,
-        maxDrawdown: 0,
-        sharpeRatio: 0,
-        profitFactor: 0,
-        totalFees: 0,
-      };
-    }
-
-    const wins = trades.filter((t) => t.isWin).length;
-    const totalFees = trades.reduce((sum, t) => sum + t.fees, 0);
-
-    // Equity curve for drawdown and total return
-    let equity = INITIAL_CAPITAL;
-    let peak = INITIAL_CAPITAL;
-    let maxDrawdown = 0;
-
-    for (const trade of trades) {
-      equity += trade.pnl;
-      if (equity > peak) peak = equity;
-      const drawdown = ((peak - equity) / peak) * 100;
-      if (drawdown > maxDrawdown) maxDrawdown = drawdown;
-    }
-
-    const totalReturn =
-      ((equity - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
-
-    // Profit factor
-    const grossProfit = trades
-      .filter((t) => t.pnl > 0)
-      .reduce((sum, t) => sum + t.pnl, 0);
-    const grossLoss = Math.abs(
-      trades.filter((t) => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0),
-    );
-    const profitFactor = grossLoss === 0 ? 0 : grossProfit / grossLoss;
-
-    // Annualized Sharpe ratio
-    const returns = trades.map((t) => t.pnl / INITIAL_CAPITAL);
-    const meanReturn =
-      returns.reduce((sum, r) => sum + r, 0) / returns.length;
-    const variance =
-      returns.reduce((sum, r) => sum + (r - meanReturn) ** 2, 0) /
-      returns.length;
-    const stdDev = Math.sqrt(variance);
-    const sharpeRatio =
-      stdDev === 0 ? 0 : (meanReturn / stdDev) * Math.sqrt(252);
-
-    return {
-      totalTrades: trades.length,
-      winRate: parseFloat(((wins / trades.length) * 100).toFixed(2)),
-      totalReturn: parseFloat(totalReturn.toFixed(2)),
-      maxDrawdown: parseFloat(maxDrawdown.toFixed(2)),
-      sharpeRatio: parseFloat(sharpeRatio.toFixed(2)),
-      profitFactor: parseFloat(profitFactor.toFixed(2)),
-      totalFees: parseFloat(totalFees.toFixed(2)),
-    };
   }
 }

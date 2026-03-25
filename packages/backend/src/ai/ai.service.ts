@@ -115,6 +115,24 @@ Do NOT output raw YAML without the \`\`\`strategy fence. The backtest button wil
 - Crossunder: crossunder(ema_fast, ema_slow) — when fast crosses below slow
 - Math: close > ema_slow * 1.02
 
+## Short Selling (optional)
+Add short_condition to entry and exit for short positions:
+
+entry:
+  condition:
+    - "rsi < 30"
+  short_condition:
+    - "rsi > 70 and ema_fast < ema_slow"
+
+exit:
+  condition:
+    - "rsi > 65"
+  short_condition:
+    - "rsi < 35"
+
+Without short_condition, strategy is long-only (default).
+Short SL triggers when price rises by stop_loss%, short TP triggers when price falls by take_profit%.
+
 ## Improvement Loop
 When analyzing backtest results, suggest concrete improvements such as:
 - Adjusting RSI thresholds
