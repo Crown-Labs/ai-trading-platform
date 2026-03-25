@@ -6,6 +6,7 @@ import {
   ColorType,
   type IChartApi,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
   type CandlestickData,
   type SeriesMarker,
   type Time,
@@ -30,6 +31,7 @@ export default function BacktestChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const [activeTimeframe, setActiveTimeframe] = useState(defaultTimeframe);
   const [candles, setCandles] = useState(initialCandles);
   const [loading, setLoading] = useState(false);
@@ -49,13 +51,13 @@ export default function BacktestChart({
       .then((data) => setCandles(data))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [activeTimeframe, symbol]);
+  }, [activeTimeframe, symbol, defaultTimeframe, initialCandles]);
 
+  // Reset to default timeframe and update candles when new backtest data arrives
   useEffect(() => {
-    if (activeTimeframe === defaultTimeframe) {
-      setCandles(initialCandles);
-    }
-  }, [initialCandles]);
+    setActiveTimeframe(defaultTimeframe);
+    setCandles(initialCandles);
+  }, [initialCandles, defaultTimeframe]);
 
   // Create chart once
   useEffect(() => {
@@ -111,6 +113,9 @@ export default function BacktestChart({
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (markersPluginRef.current) {
+        markersPluginRef.current = null;
+      }
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -164,7 +169,15 @@ export default function BacktestChart({
     }
 
     markers.sort((a, b) => (a.time as number) - (b.time as number));
-    createSeriesMarkers(seriesRef.current, markers);
+
+    // Update markers: create plugin on first run, then update existing
+    if (!markersPluginRef.current) {
+      // First time: create the markers plugin
+      markersPluginRef.current = createSeriesMarkers(seriesRef.current, markers);
+    } else {
+      // Update existing markers plugin (clears old markers automatically)
+      markersPluginRef.current.setMarkers(markers);
+    }
 
     chartRef.current?.timeScale().fitContent();
   }, [candles, trades]);
