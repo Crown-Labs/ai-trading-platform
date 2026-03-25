@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   StrategyDSL,
   BacktestResult,
+  BacktestDataRange,
   Trade,
   OHLCVCandle,
 } from '@ai-trading/shared';
@@ -97,7 +98,26 @@ export class BacktestService {
 
     const metrics = this.metricsEngine.calculate(trades);
 
-    return { strategy, trades, metrics };
+    // Build data coverage info
+    const dataRange: BacktestDataRange | undefined =
+      inputStrategy.startDate && inputStrategy.endDate && candles.length > 0
+        ? (() => {
+            const reqStart = inputStrategy.startDate!;
+            const reqEnd = inputStrategy.endDate!;
+            const actualStart = new Date(candles[0].timestamp).toISOString().split('T')[0];
+            const actualEnd = new Date(candles[candles.length - 1].timestamp).toISOString().split('T')[0];
+            const requestedDays = Math.round(
+              (new Date(reqEnd).getTime() - new Date(reqStart).getTime()) / (1000 * 60 * 60 * 24),
+            );
+            const actualDays = Math.round(
+              (new Date(actualEnd).getTime() - new Date(actualStart).getTime()) / (1000 * 60 * 60 * 24),
+            );
+            const isComplete = actualDays >= requestedDays * 0.95; // 5% tolerance
+            return { requestedStart: reqStart, requestedEnd: reqEnd, actualStart, actualEnd, totalCandles: candles.length, requestedDays, actualDays, isComplete };
+          })()
+        : undefined;
+
+    return { strategy, trades, metrics, dataRange };
   }
 
   private findFirstValidIndex(indicators: Record<string, number[]>): number {
