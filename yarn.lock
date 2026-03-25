@@ -2351,6 +2351,11 @@ js-yaml@4.1.1, js-yaml@^4.1.0:
   dependencies:
     argparse "^2.0.1"
 
+jsep@^1.4.0:
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/jsep/-/jsep-1.4.0.tgz#19feccbfa51d8a79f72480b4b8e40ce2e17152f0"
+  integrity sha512-B7qPcEVE3NVkmSJbaYxvv4cHkVW7DQsZz13pUMrfS8z8Q/BuShN+gcTXrUlPiGqM2/t/EEaI030bpxMqY8gMlw==
+
 json-parse-even-better-errors@^2.3.0, json-parse-even-better-errors@^2.3.1:
   version "2.3.1"
   resolved "https://registry.npmjs.org/json-parse-even-better-errors/-/json-parse-even-better-errors-2.3.1.tgz#7c47805a94319928e05777405dc12e1f7a4ee02d"
