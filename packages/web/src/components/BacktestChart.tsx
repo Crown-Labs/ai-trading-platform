@@ -152,7 +152,7 @@ export default function BacktestChart({
       markers.push({
         time: entryTime,
         position: isShort ? 'aboveBar' : 'belowBar',
-        color: isShort ? '#f97316' : '#22c55e',
+        color: isShort ? '#ef4444' : '#22c55e',
         shape: isShort ? 'arrowDown' : 'arrowUp',
         text: isShort ? 'S' : 'L',
         size: 1,

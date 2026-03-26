@@ -62,8 +62,7 @@ function App() {
 
         {/* Left col: Chat */}
         <div
-          className="flex-shrink-0 border-r border-dark-700 p-4 flex flex-col overflow-hidden"
-          style={{ width: '520px' }}
+          className="flex-shrink-0 border-r border-dark-700 p-4 flex flex-col overflow-hidden w-[520px]"
         >
           {activeSession ? (
             <ChatPanel
