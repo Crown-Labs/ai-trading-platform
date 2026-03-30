@@ -1,0 +1,23 @@
+# Dev mode: Only OpenClaw runs in Docker.
+# Backend and web still run locally via `yarn dev`.
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+#   yarn dev
+
+services:
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:latest
+    container_name: ai-trading-openclaw
+    restart: unless-stopped
+    ports:
+      - "18789:18789"   # exposed to host so local backend can reach it
+    volumes:
+      - openclaw-data:/root/.openclaw
+      - ./openclaw/SOUL.md:/root/.openclaw/workspace-strategy-advisor/SOUL.md:ro
+      - ./openclaw/openclaw.json:/root/.openclaw/openclaw.json:ro
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+
+volumes:
+  openclaw-data:
