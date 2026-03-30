@@ -1,107 +1,111 @@
 # AI Trading Platform
 
-A monorepo for the AI Trading Platform.
+A monorepo for the AI Trading Platform — AI-powered strategy backtesting using Binance market data.
 
-## Structure
+## For AI Agents
 
-- `packages/web` - React + TypeScript + Vite frontend
-- `packages/backend` - NestJS TypeScript backend
-- `packages/shared` - Shared TypeScript utilities and types
+> **Before implementing anything, read the workspace context first:**
+>
+> - **Dev / Implementation:** `~/.openclaw/workspace-ai-trading/` — rules, stack, git workflow
+> - **Strategy Research:** `~/.openclaw/workspace-strategy-advisor/` — indicators, DSL format, metrics guide
+>
+> Key files: `SOUL.md`, `AGENTS.md`, `MEMORY.md`, `memory/YYYY-MM-DD.md`
+
+---
+
+## Project Structure
+
+```
+ai-trading-platform/
+├── packages/
+│   ├── web/        # React 19 + TypeScript + Vite + Tailwind v3  (:3000)
+│   ├── backend/    # NestJS 11 + Swagger/OpenAPI                  (:4000)
+│   └── shared/     # Shared TypeScript types and utilities
+├── openclaw/       # OpenClaw config for strategy-advisor agent (Docker)
+├── docker-compose.yml       # Production: all services in Docker
+└── docker-compose.dev.yml   # Dev: OpenClaw in Docker, backend/web local
+```
 
 ## Tech Stack
 
-### Web
-- React 19
-- TypeScript
-- Vite
-- Shared package integration
-
-### Backend
-- NestJS 11
-- TypeScript
-- Express
-- Swagger/OpenAPI
-- Shared package integration
+| Layer | Stack |
+|-------|-------|
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS v3 |
+| Backend | NestJS 11, Express, Swagger/OpenAPI |
+| Shared | TypeScript types and utilities |
+| Package manager | Yarn Workspaces |
+| AI Gateway | OpenClaw (`/v1/chat/completions`) |
+| Market Data | Binance REST API (OHLCV) |
 
 ## Getting Started
 
-### 1. Install dependencies
+### Local Development
+
 ```bash
 yarn install
-```
-
-### 2. Run development servers
-
-Start both web and API servers:
-```bash
-yarn dev
-```
-
-Or run them individually:
-```bash
-yarn web dev      # Web on http://localhost:3000
-yarn backend dev  # API on http://localhost:4000/api
-```
-
-## API Documentation
-
-The backend API is available at http://localhost:4000/api
-
-**Swagger UI**: http://localhost:4000/api/docs
-
-### API Endpoints
-
-- `GET /api` - API info
-- `GET /api/health` - Health check
-- `GET /api/test` - Test endpoint with shared package integration
-
-## Development
-
-### Web Package
-The web package uses Vite with React and TypeScript. Hot reload is enabled.
-
-### Backend Package
-The backend uses NestJS with TypeScript. Auto-reload is enabled in development mode.
-
-## Build for Production
-
-Build all packages:
-```bash
-yarn web build
-yarn backend build
-```
-
-## Running the Project
-
-### Dev Mode (Recommended for development)
-
-OpenClaw runs in Docker. Backend and web run locally with hot-reload.
-
-```bash
-# 1. Copy env file
-cp .env.example .env
-# Fill in ANTHROPIC_API_KEY
-
-# 2. Start OpenClaw in Docker
-docker compose -f docker-compose.dev.yml up -d
-
-# 3. Open http://localhost:18789 → Settings → copy the gateway token
-# Paste it into .env as OPENCLAW_GATEWAY_TOKEN
-
-# 4. Start backend + web locally (hot-reload)
 yarn dev
 # Web: http://localhost:3000
-# API: http://localhost:4000
+# API: http://localhost:4000/api
+# Docs: http://localhost:4000/api/docs
 ```
 
-### Production Mode (All in Docker)
+### Dev Mode with OpenClaw in Docker
+
+OpenClaw runs in Docker, backend and web run locally with hot-reload.
+
+```bash
+# 1. Copy and fill env vars
+cp .env.example .env
+
+# 2. Start OpenClaw
+docker compose -f docker-compose.dev.yml up -d
+
+# 3. Get gateway token: http://localhost:18789 → Settings
+#    Add to .env: OPENCLAW_GATEWAY_TOKEN=...
+
+# 4. Start dev servers
+yarn dev
+```
+
+### Production (All in Docker)
 
 ```bash
 cp .env.example .env
-# Fill in ANTHROPIC_API_KEY and OPENCLAW_GATEWAY_TOKEN
+# Set ANTHROPIC_API_KEY and OPENCLAW_GATEWAY_TOKEN
 
 docker compose up -d
-# Web:     http://localhost:3000
-# API:     http://localhost:4000
+# Web:      http://localhost:3000
+# API:      http://localhost:4000/api
 # OpenClaw: http://localhost:18789
 ```
+
+## Environment Variables
+
+See `.env.example` for all required variables.
+
+| Variable | Description |
+|----------|-------------|
+| `ANTHROPIC_API_KEY` | Anthropic API key |
+| `OPENCLAW_GATEWAY_TOKEN` | OpenClaw gateway token |
+| `OPENCLAW_AGENT_ID` | Agent ID (default: `strategy-advisor`) |
+| `VITE_API_URL` | Frontend API URL (Docker prod only) |
+
+## Git Workflow
+
+```bash
+# 1. Create GitHub Issue first
+# 2. Pull latest main
+git checkout main && git pull origin main
+# 3. Create feature branch
+git checkout -b feature/42-short-description
+# 4. Commit with issue reference
+git commit -m "feat: short description (#42)"
+# 5. Push and open PR
+git push origin feature/42-short-description
+```
+
+**Rules:**
+- Never push directly to `main`
+- All commits, PRs, and issues must be in **English**
+- Package manager: `yarn` only
+- Tailwind v3 only — do not upgrade
