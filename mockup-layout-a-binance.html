@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Trading Platform — Terminal Layout (Binance)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0b0e11;
+    --surface: #1e2026;
+    --surface2: #2b2f36;
+    --border: #2b2f36;
+    --accent: #f0b90b;
+    --green: #03a66d;
+    --red: #cf304a;
+    --text: #eaecef;
+    --muted: #848e9c;
+    --font: 'Courier New', monospace;
+  }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
+
+  /* HEADER */
+  header {
+    position: fixed; top: 0; left: 0; right: 0; height: 48px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: var(--accent); letter-spacing: 0.05em; }
+  .logo-icon { width: 24px; height: 24px; background: var(--accent); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--bg); font-size: 12px; font-weight: 900; }
+  .steps { display: flex; align-items: center; gap: 0; }
+  .step { display: flex; align-items: center; gap: 6px; padding: 4px 12px; font-size: 11px; color: var(--muted); }
+  .step.done { color: var(--green); }
+  .step.active { color: var(--accent); }
+  .step-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .step-sep { color: var(--border); margin: 0 2px; }
+  .status { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--green); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* LAYOUT */
+  .layout { display: flex; height: 100vh; padding-top: 48px; overflow: hidden; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 190px; min-width: 190px; background: var(--surface);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    height: 100%; overflow: hidden;
+  }
+  .sidebar-top { padding: 10px 8px 6px; border-bottom: 1px solid var(--border); }
+  .sidebar-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+  .btn-new {
+    width: 100%; background: var(--accent); border: none; border-radius: 4px;
+    color: var(--bg); font-size: 11px; font-weight: 700; padding: 6px 10px;
+    cursor: pointer; font-family: var(--font); letter-spacing: .04em;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .btn-new:hover { opacity: .85; }
+  .sess-list { flex: 1; overflow-y: auto; padding: 4px 6px 8px; }
+  .sess-list::-webkit-scrollbar { width: 3px; }
+  .sess-list::-webkit-scrollbar-thumb { background: var(--border); }
+  .sess-item { padding: 7px 7px; border-radius: 4px; cursor: pointer; margin-bottom: 1px; }
+  .sess-item:hover { background: var(--surface2); }
+  .sess-item.active { background: var(--surface2); border-left: 2px solid var(--accent); padding-left: 5px; }
+  .sess-name { font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+  .sess-meta { font-size: 10px; color: var(--muted); margin-top: 2px; display: flex; justify-content: space-between; }
+  .ret-pos { color: var(--green); font-weight: 600; }
+  .ret-neg { color: var(--red); font-weight: 600; }
+
+  /* LEFT: CHAT PANEL */
+  .chat-panel {
+    width: 360px; min-width: 360px; background: var(--surface);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    height: 100%; overflow: hidden;
+  }
+  .chat-header { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .chat-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .session-badge { background: var(--accent); color: var(--bg); font-size: 10px; padding: 2px 7px; border-radius: 3px; font-weight: 700; }
+  .chat-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .chat-messages::-webkit-scrollbar { width: 4px; }
+  .chat-messages::-webkit-scrollbar-track { background: transparent; }
+  .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .msg { max-width: 92%; }
+  .msg.user { align-self: flex-end; }
+  .msg.ai { align-self: flex-start; }
+  .msg-bubble {
+    padding: 8px 11px; border-radius: 6px; font-size: 12px; line-height: 1.5;
+  }
+  .msg.user .msg-bubble { background: var(--accent); color: var(--bg); }
+  .msg.ai .msg-bubble { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .msg-meta { font-size: 10px; color: var(--muted); margin-top: 3px; padding: 0 4px; }
+  .msg.user .msg-meta { text-align: right; }
+  .code-block { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; font-size: 11px; color: ##fcd34d; margin-top: 6px; white-space: pre; overflow-x: auto; }
+  .thinking { display: flex; gap: 3px; align-items: center; padding: 8px 11px; background: var(--surface2); border-radius: 6px; border: 1px solid var(--border); }
+  .thinking span { width: 5px; height: 5px; background: var(--muted); border-radius: 50%; animation: bounce 1.2s infinite; }
+  .thinking span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-5px)} }
+
+  /* CHAT INPUT */
+  .chat-input-area { border-top: 1px solid var(--border); padding: 10px 14px; }
+  .chat-input-row { display: flex; gap: 8px; }
+  .chat-input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+    color: var(--text); font-family: var(--font); font-size: 12px; padding: 7px 10px;
+    outline: none; resize: none;
+  }
+  .chat-input:focus { border-color: var(--accent); }
+  .btn-send {
+    background: var(--accent); border: none; border-radius: 5px; color: var(--bg);
+    padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: var(--font);
+  }
+  .btn-send:hover { opacity: 0.85; }
+
+  /* BACKTEST CONTROLS */
+  .backtest-controls { border-top: 1px solid var(--border); padding: 10px 14px; background: var(--bg); }
+  .controls-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+  .ctrl-field label { font-size: 10px; color: var(--muted); display: block; margin-bottom: 3px; }
+  .ctrl-field input, .ctrl-field select {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--font); font-size: 11px; padding: 5px 7px;
+    border-radius: 3px; outline: none;
+  }
+  .ctrl-field input:focus, .ctrl-field select:focus { border-color: var(--accent); }
+  .btn-run {
+    width: 100%; background: var(--accent); border: none; border-radius: 4px;
+    color: var(--bg); font-size: 12px; font-weight: 700; padding: 8px; cursor: pointer;
+    font-family: var(--font); letter-spacing: 0.05em;
+  }
+  .btn-run:hover { opacity: 0.85; }
+
+  /* RIGHT PANEL */
+  .right-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* TOP ROW */
+  .top-row { flex: 0 0 55%; display: flex; border-bottom: 1px solid var(--border); overflow: hidden; }
+
+  /* CHART CARD */
+  .chart-card { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .card-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 8px; }
+  .card-title strong { color: var(--text); font-size: 13px; text-transform: none; letter-spacing: 0; }
+  .pair-badge { background: var(--surface2); border: 1px solid var(--border); font-size: 10px; padding: 2px 6px; border-radius: 3px; color: var(--accent); }
+  .timeframe-tabs { display: flex; gap: 2px; }
+  .tf-btn { background: none; border: 1px solid var(--border); color: var(--muted); font-size: 10px; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-family: var(--font); }
+  .tf-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .chart-area { flex: 1; padding: 14px; position: relative; overflow: hidden; }
+
+  /* SVG CHART */
+  .equity-chart svg { width: 100%; height: 100%; }
+  .equity-chart { width: 100%; height: 100%; }
+  .chart-info { position: absolute; top: 18px; left: 18px; }
+  .chart-val { font-size: 22px; font-weight: 700; color: var(--green); line-height: 1; }
+  .chart-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  /* RIGHT SIDE STACK */
+  .right-stack { width: 300px; min-width: 300px; border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+
+  /* STATS GRID */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
+  .stat-cell { background: var(--surface); padding: 10px 12px; }
+  .stat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
+  .stat-val { font-size: 16px; font-weight: 700; line-height: 1; }
+  .stat-val.green { color: var(--green); }
+  .stat-val.red { color: var(--red); }
+  .stat-val.accent { color: var(--accent); }
+  .stat-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* STRATEGY DSL */
+  .strategy-section { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .collapsible-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--border);
+    user-select: none;
+  }
+  .collapsible-header:hover { background: var(--surface2); }
+  .collapsible-title { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .caret { color: var(--muted); font-size: 10px; transition: transform 0.2s; }
+  .caret.open { transform: rotate(90deg); }
+  .collapsible-body { overflow-y: auto; flex: 1; padding: 10px 12px; }
+  .collapsible-body::-webkit-scrollbar { width: 3px; }
+  .collapsible-body::-webkit-scrollbar-thumb { background: var(--border); }
+  .dsl-line { font-size: 11px; line-height: 1.8; }
+  .dsl-key { color: ##fcd34d; }
+  .dsl-val { color: #86efac; }
+  .dsl-comment { color: var(--muted); }
+  .dsl-op { color: #fbbf24; }
+
+  /* BOTTOM ROW */
+  .bottom-row { flex: 1; display: flex; overflow: hidden; }
+
+  /* HEATMAP CARD */
+  .heatmap-card { flex: 1; border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .collapsible-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; padding: 10px 12px; flex: 1; }
+  .hm-header { font-size: 9px; color: var(--muted); text-align: center; padding: 2px; }
+  .hm-cell {
+    aspect-ratio: 1; border-radius: 3px; display: flex; align-items: center;
+    justify-content: center; font-size: 9px; font-weight: 700; cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .hm-cell:hover { opacity: 0.75; }
+
+  /* TRADE TABLE */
+  .trades-card { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .trades-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .trades-table th { padding: 6px 10px; text-align: left; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); z-index: 1; }
+  .trades-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); color: var(--text); }
+  .trades-table tr:hover td { background: var(--surface2); }
+  .trade-side { font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 2px; }
+  .trade-side.long { background: rgba(3,166,109,0.15); color: var(--green); }
+  .trade-side.short { background: rgba(207,48,74,0.15); color: var(--red); }
+  .pnl-pos { color: var(--green); }
+  .pnl-neg { color: var(--red); }
+  .table-wrap { overflow-y: auto; flex: 1; }
+  .table-wrap::-webkit-scrollbar { width: 4px; }
+  .table-wrap::-webkit-scrollbar-thumb { background: var(--border); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    AlgoEdge
+  </div>
+  <div class="steps">
+    <div class="step done"><span class="step-dot"></span> Describe ✓</div>
+    <span class="step-sep">›</span>
+    <div class="step done"><span class="step-dot"></span> Strategy ✓</div>
+    <span class="step-sep">›</span>
+    <div class="step active"><span class="step-dot"></span> Backtest ●</div>
+    <span class="step-sep">›</span>
+    <div class="step"><span class="step-dot"></span> Optimize</div>
+  </div>
+  <div class="status">
+    <div class="status-dot"></div>
+    Connected · BTCUSDT
+  </div>
+</header>
+
+<!-- MAIN LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR: SESSION LIST -->
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-label">Sessions</div>
+      <button class="btn-new">＋ New Chat</button>
+    </div>
+    <div class="sess-list">
+      <div class="sess-item active">
+        <div class="sess-name">RSI Reversal BTC</div>
+        <div class="sess-meta"><span>2h · 3 runs</span><span class="ret-pos">+42.8%</span></div>
+      </div>
+      <div class="sess-item">
+        <div class="sess-name">EMA Crossover ETH</div>
+        <div class="sess-meta"><span>Yesterday</span><span class="ret-neg">-4.2%</span></div>
+      </div>
+      <div class="sess-item">
+        <div class="sess-name">MACD Momentum SOL</div>
+        <div class="sess-meta"><span>3d · 2 runs</span><span class="ret-pos">+18.1%</span></div>
+      </div>
+      <div class="sess-item">
+        <div class="sess-name">Bollinger Bands BNB</div>
+        <div class="sess-meta"><span>5d ago</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEFT: CHAT PANEL -->
+  <div class="chat-panel">
+    <div class="chat-header">
+      <span class="chat-title">AI Assistant</span>
+      <span class="session-badge">RSI Reversal BTC</span>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+      <div class="msg user">
+        <div class="msg-bubble">I want to backtest a mean reversion strategy on BTC using RSI oversold conditions combined with high volume confirmation.</div>
+        <div class="msg-meta">You · 09:14</div>
+      </div>
+      <div class="msg ai">
+        <div class="msg-bubble">
+          Great idea. I'll build an RSI + Volume MA strategy for you. Here's what I'm generating:
+          <div class="code-block">strategy: RSI Reversal BTC
+pair: BTCUSDT · 1h
+entry: rsi(14) &lt; 25
+  AND volume &gt; vol_ma(20)*1.2
+exit:  rsi(14) &gt; 70
+stop:  -3.0%  target: +9.0%</div>
+          Running backtest on 2 years of data…
+        </div>
+        <div class="msg-meta">AlgoEdge AI · 09:14</div>
+      </div>
+      <div class="msg ai">
+        <div class="msg-bubble">
+          ✅ Backtest complete. Results look strong:
+          <br><br>
+          <strong style="color:var(--green)">+42.8% return</strong> · 220 trades · 67.3% win rate<br>
+          Sharpe 1.84 · Max DD −12.4%
+          <br><br>
+          The strategy performs best during high-volatility periods. Vol filter helps avoid false RSI signals in ranging markets.
+        </div>
+        <div class="msg-meta">AlgoEdge AI · 09:15</div>
+      </div>
+      <div class="msg user">
+        <div class="msg-bubble">Can you show me the monthly breakdown?</div>
+        <div class="msg-meta">You · 09:16</div>
+      </div>
+      <div class="msg ai">
+        <div class="msg-bubble">Sure — the heatmap below shows monthly P&L. Best months: Jan +8.2%, Mar +6.7%. Worst: Aug −4.1%. Strong positive skew overall.</div>
+        <div class="msg-meta">AlgoEdge AI · 09:16</div>
+      </div>
+      <div class="msg user">
+        <div class="msg-bubble">What parameters should I optimize first?</div>
+        <div class="msg-meta">You · 09:18</div>
+      </div>
+      <div class="msg ai">
+        <div class="msg-bubble">
+          I'd recommend starting with:
+          <br><br>
+          1. <strong style="color:var(--accent)">RSI Period</strong> — try 10–20 (current: 14)<br>
+          2. <strong style="color:var(--accent)">Entry Threshold</strong> — sweep 20–30<br>
+          3. <strong style="color:var(--accent)">Vol Multiplier</strong> — 1.1–1.5<br><br>
+          Head to the Optimize step when ready.
+        </div>
+        <div class="msg-meta">AlgoEdge AI · 09:18</div>
+      </div>
+    </div>
+
+    <div class="chat-input-area">
+      <div class="chat-input-row">
+        <textarea class="chat-input" rows="2" placeholder="Ask AI to modify strategy…"></textarea>
+        <button class="btn-send">▶ Run</button>
+      </div>
+    </div>
+
+    <div class="backtest-controls">
+      <div class="controls-label">Backtest Parameters</div>
+      <div class="controls-grid">
+        <div class="ctrl-field">
+          <label>Pair</label>
+          <select><option>BTCUSDT</option><option>ETHUSDT</option><option>SOLUSDT</option></select>
+        </div>
+        <div class="ctrl-field">
+          <label>Timeframe</label>
+          <select><option>1h</option><option>4h</option><option>1d</option><option>15m</option></select>
+        </div>
+        <div class="ctrl-field">
+          <label>Start Date</label>
+          <input type="text" value="2023-01-01">
+        </div>
+        <div class="ctrl-field">
+          <label>End Date</label>
+          <input type="text" value="2024-12-31">
+        </div>
+        <div class="ctrl-field">
+          <label>Capital ($)</label>
+          <input type="text" value="10,000">
+        </div>
+        <div class="ctrl-field">
+          <label>Commission</label>
+          <input type="text" value="0.04%">
+        </div>
+      </div>
+      <button class="btn-run">⚡ RUN BACKTEST</button>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+
+    <!-- TOP ROW -->
+    <div class="top-row">
+
+      <!-- EQUITY CHART -->
+      <div class="chart-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>Equity Curve</span>
+            <strong>RSI Reversal BTC</strong>
+            <span class="pair-badge">BTCUSDT · 1h</span>
+          </div>
+          <div class="timeframe-tabs">
+            <button class="tf-btn" onclick="setTF(this,'1M')">1M</button>
+            <button class="tf-btn" onclick="setTF(this,'3M')">3M</button>
+            <button class="tf-btn" onclick="setTF(this,'6M')">6M</button>
+            <button class="tf-btn active" onclick="setTF(this,'1Y')">1Y</button>
+            <button class="tf-btn" onclick="setTF(this,'2Y')">2Y</button>
+          </div>
+        </div>
+        <div class="chart-area">
+          <div class="chart-info">
+            <div class="chart-val">+42.8%</div>
+            <div class="chart-sub">Total Return · 2Y · 220 trades</div>
+          </div>
+          <div class="equity-chart" style="height:100%">
+            <svg viewBox="0 0 800 260" preserveAspectRatio="none" style="width:100%;height:100%">
+              <defs>
+                <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#03a66d" stop-opacity="0.3"/>
+                  <stop offset="100%" stop-color="#03a66d" stop-opacity="0.01"/>
+                </linearGradient>
+                <linearGradient id="btcGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#f0b90b" stop-opacity="0.15"/>
+                  <stop offset="100%" stop-color="#f0b90b" stop-opacity="0.01"/>
+                </linearGradient>
+              </defs>
+              <!-- Grid lines -->
+              <line x1="0" y1="52" x2="800" y2="52" stroke="#1e2d45" stroke-width="1"/>
+              <line x1="0" y1="104" x2="800" y2="104" stroke="#1e2d45" stroke-width="1"/>
+              <line x1="0" y1="156" x2="800" y2="156" stroke="#1e2d45" stroke-width="1"/>
+              <line x1="0" y1="208" x2="800" y2="208" stroke="#1e2d45" stroke-width="1"/>
+              <!-- Y labels -->
+              <text x="4" y="50" fill="#4a5c7a" font-size="9">+60%</text>
+              <text x="4" y="102" fill="#4a5c7a" font-size="9">+40%</text>
+              <text x="4" y="154" fill="#4a5c7a" font-size="9">+20%</text>
+              <text x="4" y="206" fill="#4a5c7a" font-size="9">0%</text>
+              <!-- X labels -->
+              <text x="0" y="250" fill="#4a5c7a" font-size="9">Jan</text>
+              <text x="100" y="250" fill="#4a5c7a" font-size="9">Mar</text>
+              <text x="200" y="250" fill="#4a5c7a" font-size="9">May</text>
+              <text x="300" y="250" fill="#4a5c7a" font-size="9">Jul</text>
+              <text x="400" y="250" fill="#4a5c7a" font-size="9">Sep</text>
+              <text x="500" y="250" fill="#4a5c7a" font-size="9">Nov</text>
+              <text x="600" y="250" fill="#4a5c7a" font-size="9">Jan</text>
+              <text x="700" y="250" fill="#4a5c7a" font-size="9">Mar</text>
+              <!-- BTC fill -->
+              <path d="M0,180 C50,175 100,185 150,170 C200,155 250,160 300,150 C350,140 400,155 450,145 C500,135 550,140 600,130 C650,120 700,125 750,115 L800,110 L800,240 L0,240 Z" fill="url(#btcGrad)"/>
+              <!-- BTC line -->
+              <path d="M0,180 C50,175 100,185 150,170 C200,155 250,160 300,150 C350,140 400,155 450,145 C500,135 550,140 600,130 C650,120 700,125 750,115 L800,110" fill="none" stroke="#f0b90b" stroke-width="1.5" stroke-dasharray="5,3" opacity="0.6"/>
+              <!-- Equity fill -->
+              <path d="M0,208 C30,205 60,202 90,195 C120,188 140,198 170,185 C200,172 230,182 260,165 C290,148 310,160 340,145 C370,130 390,138 420,120 C450,102 470,115 500,98 C530,81 555,92 580,76 C610,60 640,68 670,55 C700,42 730,50 760,38 L800,32 L800,240 L0,240 Z" fill="url(#eqGrad)"/>
+              <!-- Equity line -->
+              <path d="M0,208 C30,205 60,202 90,195 C120,188 140,198 170,185 C200,172 230,182 260,165 C290,148 310,160 340,145 C370,130 390,138 420,120 C450,102 470,115 500,98 C530,81 555,92 580,76 C610,60 640,68 670,55 C700,42 730,50 760,38 L800,32" fill="none" stroke="#22c55e" stroke-width="2"/>
+              <!-- Trade markers -->
+              <circle cx="170" cy="185" r="3" fill="#cf304a" opacity="0.8"/>
+              <circle cx="310" cy="160" r="3" fill="#03a66d" opacity="0.8"/>
+              <circle cx="470" cy="115" r="3" fill="#03a66d" opacity="0.8"/>
+              <circle cx="630" cy="65" r="3" fill="#cf304a" opacity="0.8"/>
+              <!-- Current price line -->
+              <line x1="800" y1="32" x2="800" y2="240" stroke="#22c55e" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
+              <!-- Legend -->
+              <rect x="620" y="8" width="10" height="2" fill="#03a66d" rx="1"/>
+              <text x="634" y="16" fill="#e2e8f0" font-size="9">Strategy</text>
+              <rect x="700" y="8" width="10" height="2" fill="#0ea5e9" rx="1"/>
+              <text x="714" y="16" fill="#4a5c7a" font-size="9">BTC B&amp;H</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT SIDE STACK -->
+      <div class="right-stack">
+        <div class="card-header" style="border-bottom:1px solid var(--border)">
+          <span class="card-title">Performance Stats</span>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-cell">
+            <div class="stat-label">Total Return</div>
+            <div class="stat-val green">+42.8%</div>
+            <div class="stat-sub">vs BTC +31.2%</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">Win Rate</div>
+            <div class="stat-val accent">67.3%</div>
+            <div class="stat-sub">148W / 72L</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">Sharpe Ratio</div>
+            <div class="stat-val accent">1.84</div>
+            <div class="stat-sub">Sortino 2.31</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">Max Drawdown</div>
+            <div class="stat-val red">−12.4%</div>
+            <div class="stat-sub">14 days dur.</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">Total Trades</div>
+            <div class="stat-val" style="color:var(--text)">220</div>
+            <div class="stat-sub">~9.2 / month</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">Profit Factor</div>
+            <div class="stat-val green">2.18</div>
+            <div class="stat-sub">Avg W/L: 3.1x</div>
+          </div>
+        </div>
+
+        <!-- STRATEGY DSL -->
+        <div class="strategy-section">
+          <div class="collapsible-header" onclick="toggleCollapse('dsl')">
+            <span class="collapsible-title">Strategy DSL</span>
+            <span class="caret open" id="dsl-caret">▶</span>
+          </div>
+          <div class="collapsible-body" id="dsl-body">
+            <div class="dsl-line"><span class="dsl-comment"># RSI Reversal BTC · v1.2</span></div>
+            <div class="dsl-line"><span class="dsl-key">strategy</span>  <span class="dsl-val">"RSI Reversal BTC"</span></div>
+            <div class="dsl-line"><span class="dsl-key">pair</span>      <span class="dsl-val">BTCUSDT</span></div>
+            <div class="dsl-line"><span class="dsl-key">timeframe</span> <span class="dsl-val">1h</span></div>
+            <div class="dsl-line">&nbsp;</div>
+            <div class="dsl-line"><span class="dsl-comment"># Indicators</span></div>
+            <div class="dsl-line"><span class="dsl-key">rsi</span>    <span class="dsl-op">= </span><span class="dsl-val">RSI(close, 14)</span></div>
+            <div class="dsl-line"><span class="dsl-key">vol_ma</span> <span class="dsl-op">= </span><span class="dsl-val">SMA(volume, 20)</span></div>
+            <div class="dsl-line">&nbsp;</div>
+            <div class="dsl-line"><span class="dsl-comment"># Entry</span></div>
+            <div class="dsl-line"><span class="dsl-key">entry</span>  <span class="dsl-op">when</span> <span class="dsl-val">rsi &lt; 25</span></div>
+            <div class="dsl-line">         <span class="dsl-op">AND</span> <span class="dsl-val">volume &gt; vol_ma*1.2</span></div>
+            <div class="dsl-line">&nbsp;</div>
+            <div class="dsl-line"><span class="dsl-comment"># Exit</span></div>
+            <div class="dsl-line"><span class="dsl-key">exit</span>   <span class="dsl-op">when</span> <span class="dsl-val">rsi &gt; 70</span></div>
+            <div class="dsl-line"><span class="dsl-key">stop</span>   <span class="dsl-val">-3.0%</span></div>
+            <div class="dsl-line"><span class="dsl-key">target</span> <span class="dsl-val">+9.0%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW -->
+    <div class="bottom-row">
+
+      <!-- HEATMAP -->
+      <div class="heatmap-card">
+        <div class="collapsible-header" onclick="toggleCollapse('heatmap')">
+          <span class="collapsible-title">Monthly P&amp;L Heatmap</span>
+          <span class="caret open" id="heatmap-caret">▶</span>
+        </div>
+        <div class="collapsible-content" id="heatmap-body">
+          <div class="heatmap-grid" id="heatmapGrid"></div>
+        </div>
+      </div>
+
+      <!-- TRADES TABLE -->
+      <div class="trades-card">
+        <div class="collapsible-header" onclick="toggleCollapse('trades')">
+          <span class="collapsible-title">Trade History <span style="color:var(--accent);font-size:10px;margin-left:6px">220 trades</span></span>
+          <span class="caret open" id="trades-caret">▶</span>
+        </div>
+        <div class="collapsible-content" id="trades-body">
+          <div class="table-wrap">
+            <table class="trades-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>Side</th><th>Entry</th><th>Exit</th><th>Size</th><th>P&L</th><th>Return</th><th>Duration</th>
+                </tr>
+              </thead>
+              <tbody id="tradesTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // Collapsible toggle
+  function toggleCollapse(id) {
+    const body = document.getElementById(id + '-body');
+    const caret = document.getElementById(id + '-caret');
+    if (body.style.display === 'none') {
+      body.style.display = '';
+      caret.classList.add('open');
+    } else {
+      body.style.display = 'none';
+      caret.classList.remove('open');
+    }
+  }
+
+  // Timeframe tabs
+  function setTF(btn, tf) {
+    document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  // Generate heatmap
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const years = ['2023','2024'];
+  const heatData = [
+    8.2, -1.3, 6.7, 3.1, -0.8, 4.4, 2.9, -4.1, 5.2, 3.8, -0.5, 7.1,
+    4.3, 2.1, -1.8, 5.6, 3.3, -2.2, 1.9, 3.7, -0.9, 4.8, 2.6, 1.2
+  ];
+  const grid = document.getElementById('heatmapGrid');
+  grid.innerHTML = '<div class="hm-header"></div>' + months.map(m => `<div class="hm-header">${m}</div>`).join('');
+  years.forEach((yr, yi) => {
+    grid.innerHTML += `<div class="hm-header" style="color:var(--text)">${yr}</div>`;
+    months.forEach((m, mi) => {
+      const val = heatData[yi * 12 + mi];
+      const intensity = Math.abs(val) / 10;
+      const bg = val >= 0
+        ? `rgba(3,166,109,${Math.min(0.7, intensity + 0.1)})`
+        : `rgba(207,48,74,${Math.min(0.7, intensity + 0.1)})`;
+      const txt = val >= 0 ? '#22c55e' : '#ef4444';
+      grid.innerHTML += `<div class="hm-cell" style="background:${bg};color:${txt}" title="${yr} ${m}: ${val>0?'+':''}${val}%">${val>0?'+':''}${val}</div>`;
+    });
+  });
+
+  // Generate trade table
+  const trades = [
+    ['220','LONG','64,210','69,852','0.156','$897','9.0%','6h 22m'],
+    ['219','LONG','61,840','63,280','0.162','$228','2.3%','3h 08m'],
+    ['218','SHORT','67,430','66,420','0.148','-$149','-1.5%','1h 44m'],
+    ['217','LONG','59,180','64,520','0.169','$902','9.0%','8h 55m'],
+    ['216','LONG','62,310','60,450','0.161','-$300','-3.0%','2h 17m'],
+    ['215','LONG','58,740','64,010','0.170','$895','9.0%','11h 03m'],
+    ['214','SHORT','66,200','65,020','0.151','$178','1.8%','4h 33m'],
+    ['213','LONG','60,520','65,968','0.165','$899','9.0%','7h 41m'],
+    ['212','LONG','63,800','61,910','0.157','-$297','-3.0%','1h 58m'],
+    ['211','LONG','57,990','63,230','0.172','$901','9.0%','9h 28m'],
+  ];
+  const tbody = document.getElementById('tradesTbody');
+  trades.forEach(([num, side, entry, exit, size, pnl, ret, dur]) => {
+    const isLong = side === 'LONG';
+    const isPos = pnl.startsWith('$') && !pnl.startsWith('-');
+    tbody.innerHTML += `
+      <tr>
+        <td style="color:var(--muted)">${num}</td>
+        <td><span class="trade-side ${isLong?'long':'short'}">${side}</span></td>
+        <td>${entry}</td>
+        <td>${exit}</td>
+        <td style="color:var(--muted)">${size}</td>
+        <td class="${isPos?'pnl-pos':'pnl-neg'}">${pnl}</td>
+        <td class="${isPos?'pnl-pos':'pnl-neg'}">${ret}</td>
+        <td style="color:var(--muted)">${dur}</td>
+      </tr>`;
+  });
+</script>
+</body>
+</html>
