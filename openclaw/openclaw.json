@@ -1,0 +1,21 @@
+{
+  "gateway": {
+    "bind": "lan",
+    "mode": "local"
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "anthropic/claude-sonnet-4-6"
+      },
+      "workspace": "/root/.openclaw/workspace-strategy-advisor"
+    },
+    "list": [
+      {
+        "id": "strategy-advisor",
+        "default": true,
+        "name": "Strategy Advisor"
+      }
+    ]
+  }
+}

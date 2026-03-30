@@ -12,6 +12,7 @@ import {
   type Time,
 } from 'lightweight-charts';
 import { Trade, OHLCVCandle } from '@ai-trading/shared';
+import { API_BASE } from '../lib/api';
 
 interface BacktestChartProps {
   candles: OHLCVCandle[];
@@ -45,7 +46,7 @@ export default function BacktestChart({
     }
     setLoading(true);
     fetch(
-      `http://localhost:4000/api/market-data/candles?symbol=${symbol}&interval=${activeTimeframe}&limit=500`,
+      `${API_BASE}/api/market-data/candles?symbol=${symbol}&interval=${activeTimeframe}&limit=500`,
     )
       .then((r) => r.json())
       .then((data) => setCandles(data))
