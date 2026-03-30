@@ -109,3 +109,72 @@ git push origin feature/42-short-description
 - All commits, PRs, and issues must be in **English**
 - Package manager: `yarn` only
 - Tailwind v3 only — do not upgrade
+
+## CI/CD
+
+### GitHub Actions Workflows
+
+| Workflow | Trigger | Description |
+|----------|---------|-------------|
+| `test.yml` | PR to main | Run tests |
+| `deploy.yml` | Push to main | Build images → push to ghcr.io → SSH deploy |
+
+### Required GitHub Secrets
+
+Go to: `GitHub repo → Settings → Secrets and variables → Actions`
+
+| Secret | Description |
+|--------|-------------|
+| `PROD_SSH_HOST` | Production server IP or hostname |
+| `PROD_SSH_USER` | SSH user (e.g. `ubuntu`) |
+| `PROD_SSH_KEY` | SSH private key (PEM format) |
+
+### Production Server Setup (one-time)
+
+```bash
+# On prod server
+mkdir ~/ai-trading
+cd ~/ai-trading
+
+# Clone repo (for docker-compose files)
+git clone https://github.com/Crown-Labs/ai-trading-platform.git .
+
+# Create .env (never commit this)
+cat > .env << EOF
+OPENCLAW_GATEWAY_TOKEN=your-token-from-openclaw
+OPENCLAW_AGENT_ID=strategy-advisor
+OPENCLAW_GATEWAY_URL=http://localhost:18789   # if OpenClaw runs on same host
+CORS_ORIGIN=https://yourdomain.com
+
+## CI/CD
+
+### GitHub Actions Workflows
+
+| Workflow | Trigger | Description |
+|----------|---------|-------------|
+| `test.yml` | PR to main | Run tests |
+| `deploy.yml` | Push to main | Build images → push to ghcr.io → SSH deploy |
+
+### Required GitHub Secrets
+
+Go to: `GitHub repo → Settings → Secrets and variables → Actions`
+
+| Secret | Description |
+|--------|-------------|
+| `PROD_SSH_HOST` | Production server IP or hostname |
+| `PROD_SSH_USER` | SSH user (e.g. `ubuntu`) |
+| `PROD_SSH_KEY` | SSH private key (PEM format) |
+
+### Production Server Setup (one-time)
+
+```bash
+# On prod server
+mkdir ~/ai-trading && cd ~/ai-trading
+git clone https://github.com/Crown-Labs/ai-trading-platform.git .
+
+# Create .env (never commit this file)
+cp .env.example .env
+# Fill in OPENCLAW_GATEWAY_TOKEN, CORS_ORIGIN, etc.
+```
+
+After setup, every push to `main` automatically builds and deploys. 🚀
