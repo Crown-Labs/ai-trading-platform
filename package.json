@@ -10,7 +10,9 @@
     "web": "yarn workspace @ai-trading/web",
     "backend": "yarn workspace @ai-trading/backend",
     "shared": "yarn workspace @ai-trading/shared",
-    "postinstall": "yarn workspace @ai-trading/shared build"
+    "postinstall": "yarn workspace @ai-trading/shared build",
+    "proxy dev": "yarn workspace @ai-trading/claude-code-proxy dev",
+    "proxy build": "yarn workspace @ai-trading/claude-code-proxy build"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

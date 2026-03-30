@@ -12,9 +12,10 @@ This document provides guidelines for AI assistants (like Claude, Openclaw, etc.
 ```
 ai-trading-platform/
 ├── packages/
-│   ├── web/          # React + TypeScript + Vite frontend
-│   ├── backend/      # NestJS + TypeScript API
-│   └── shared/       # Shared TypeScript utilities & types
+│   ├── web/                # React + TypeScript + Vite frontend
+│   ├── backend/            # NestJS + TypeScript API
+│   ├── shared/             # Shared TypeScript utilities & types
+│   └── claude-code-proxy/  # NestJS proxy for Claude Code API
 ├── package.json      # Root workspace configuration
 └── CLAUDE.md        # This file
 ```
@@ -38,6 +39,16 @@ ai-trading-platform/
 - Shared between web and backend
 - CommonJS module format
 
+**Claude Code Proxy (`@ai-trading/claude-code-proxy`)**
+- NestJS proxy server for Claude Code API
+- Runs on port 3001 (configurable via `PORT` env var)
+- Per-user proxy key authentication (SHA-256 hashed)
+- Redis-based rate limiting (sliding window)
+- Usage tracking with PostgreSQL (tokens + cost)
+- SSE streaming support
+- Admin API with Swagger docs at `/docs`
+- Requires PostgreSQL and Redis (docker-compose provided in package directory)
+
 ## Development Commands
 
 ```bash
@@ -51,9 +62,13 @@ yarn dev
 yarn web dev      # http://localhost:3000
 yarn backend dev  # http://localhost:4000/api
 
+# Run claude-code-proxy
+yarn proxy dev    # http://localhost:3001
+
 # Build
 yarn web build
 yarn backend build
+yarn proxy build
 ```
 
 ## Core Principles
