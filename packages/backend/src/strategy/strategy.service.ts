@@ -104,7 +104,16 @@ Output Requirements:
 - ONLY output valid YAML
 - NO code fences (no \`\`\`yaml)
 - NO explanations or commentary
-- Start with "strategy:" immediately`;
+- Start with "strategy:" immediately
+
+YAML Formatting (STRICT):
+- Use exactly 2 spaces for indentation, NEVER tabs
+- ALL condition strings MUST be in double quotes: - "rsi < 30"
+- Numbers must be plain without quotes: stop_loss: 3 (NOT "3")
+- String values must be plain: symbol: BTCUSDT (NOT "BTCUSDT")
+- Each condition must be a single line — no multi-line strings
+- Complex indicators use flow mapping: macd: { fast: 12, slow: 26, signal: 9 }
+- No duplicate keys, no trailing whitespace, no YAML document separators (---), no comments`;
 
 @Injectable()
 export class StrategyService {
@@ -119,14 +128,14 @@ export class StrategyService {
   }
 
   private get agentId(): string {
-    return process.env.OPENCLAW_AGENT_ID || 'trading-bot';
+    return process.env.OPENCLAW_AGENT_ID || 'strategy-advisor';
   }
 
   async parseFromText(text: string): Promise<StrategyDSL> {
     const url = `${this.gatewayUrl}/v1/chat/completions`;
 
     const body = JSON.stringify({
-      model: this.agentId,
+      model: `openclaw/${this.agentId}`,
       messages: [
         { role: 'system', content: PARSE_SYSTEM_PROMPT },
         { role: 'user', content: text },
@@ -144,6 +153,7 @@ export class StrategyService {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.gatewayToken}`,
+          'x-openclaw-scopes': 'operator.write',
         },
         body,
       });

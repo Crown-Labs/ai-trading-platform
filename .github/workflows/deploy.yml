@@ -5,8 +5,7 @@ on:
     branches: [main]
 
 env:
-  REGISTRY: ghcr.io
-  REPO: ${{ github.repository }}
+  DOCKERHUB_NAMESPACE: 0xthoth
 
 jobs:
   # ── Build & Push Images ──────────────────────────────────────────
@@ -25,18 +24,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract metadata for backend
         id: meta-backend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.REPO }}/backend
+          images: ${{ env.DOCKERHUB_NAMESPACE }}/ai-trading-backend
           tags: |
             type=sha,prefix=sha-
             type=raw,value=latest
@@ -45,7 +43,7 @@ jobs:
         id: meta-web
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.REPO }}/web
+          images: ${{ env.DOCKERHUB_NAMESPACE }}/ai-trading-web
           tags: |
             type=sha,prefix=sha-
             type=raw,value=latest
@@ -74,35 +72,33 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ── Deploy to Production ─────────────────────────────────────────
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: build
-    environment: production
+  # deploy:
+  #   name: Deploy to Production
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  #     - name: Deploy via SSH
+  #       uses: appleboy/ssh-action@v1
+  #       with:
+  #         host: ${{ secrets.PROD_SSH_HOST }}
+  #         username: ${{ secrets.PROD_SSH_USER }}
+  #         key: ${{ secrets.PROD_SSH_KEY }}
+  #         script: |
+  #           cd /home/develop/ai-trading-platform
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.PROD_SSH_HOST }}
-          username: ${{ secrets.PROD_SSH_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script: |
-            cd ~/ai-trading
+  #           # Pull latest compose file
+  #           git pull origin main
 
-            # Pull latest compose file
-            git pull origin main
+  #           # Log in to Docker Hub
+  #           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login \
+  #             -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
 
-            # Log in to ghcr.io
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
-              -u ${{ github.actor }} --password-stdin
+  #           # Pull new images and restart
+  #           docker compose -f docker-compose.prod.yml pull
+  #           docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            # Pull new images and restart
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
-
-            # Clean up old images
-            docker image prune -f
+  #           # Clean up old images
+  #           docker image prune -f

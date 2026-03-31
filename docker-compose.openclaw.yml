@@ -1,0 +1,45 @@
+# Standalone OpenClaw deployment for the dev server.
+# Run alongside docker-compose.prod.yml on the same host.
+#
+# Usage:
+#   1. Copy this file + openclaw/ folder to the dev server
+#   2. Create .env with ANTHROPIC_API_KEY
+#   3. docker compose -f docker-compose.openclaw.yml up -d
+#
+# The backend connects via OPENCLAW_GATEWAY_URL=http://localhost:18789
+# Set OPENCLAW_GATEWAY_TOKEN from: docker exec ai-trading-openclaw grep token /home/node/.openclaw/openclaw.json
+
+services:
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:latest
+    container_name: ai-trading-openclaw
+    restart: unless-stopped
+    user: root
+    ports:
+      - "127.0.0.1:18789:18789"   # gateway — localhost only
+    volumes:
+      - openclaw-data:/home/node/.openclaw
+      - ./openclaw/SOUL.md:/home/node/.openclaw/workspace-strategy-advisor/SOUL.md:ro
+      - ./openclaw/openclaw.json:/tmp/openclaw-seed.json:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        chown -R node:node /home/node/.openclaw 2>/dev/null || true
+        cp /tmp/openclaw-seed.json /home/node/.openclaw/openclaw.json
+        chown node:node /home/node/.openclaw/openclaw.json
+
+        # Auto-register Anthropic API key in agent auth profile
+        if [ -n "$ANTHROPIC_API_KEY" ]; then
+          mkdir -p /home/node/.openclaw/agents/strategy-advisor/agent
+          echo "{\"profiles\":{\"anthropic:manual\":{\"provider\":\"anthropic\",\"type\":\"api_key\",\"key\":\"$ANTHROPIC_API_KEY\"}},\"order\":{\"anthropic\":[\"anthropic:manual\"]}}" > /home/node/.openclaw/agents/strategy-advisor/agent/auth-profiles.json
+          chown -R node:node /home/node/.openclaw/agents
+        fi
+
+        exec su -s /bin/sh node -c 'docker-entrypoint.sh node openclaw.mjs gateway --allow-unconfigured --bind lan'
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+
+volumes:
+  openclaw-data:
