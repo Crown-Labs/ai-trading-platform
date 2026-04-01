@@ -72,19 +72,6 @@ export class StrategyDSLDto {
   execution?: ExecutionParamsDto;
 }
 
-export class ParseStrategyDto {
-  @ApiProperty({
-    example:
-      'Buy BTC when RSI is below 30, sell when RSI is above 70, stop loss 2%, take profit 5%',
-  })
-  text: string;
-}
-
-export class ParseStrategyResponseDto {
-  @ApiProperty({ type: StrategyDSLDto })
-  strategy: StrategyDSLDto;
-}
-
 export class RunBacktestDto {
   @ApiProperty({ type: StrategyDSLDto })
   strategy: StrategyDSLDto;
