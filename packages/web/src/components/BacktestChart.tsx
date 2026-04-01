@@ -139,7 +139,10 @@ export default function BacktestChart({
 
     seriesRef.current.setData(data);
 
-    // Build markers from trades
+    // Build markers from trades — only for candles within visible range
+    const firstCandleTime = data[0]?.time as number ?? 0;
+    const lastCandleTime = data[data.length - 1]?.time as number ?? Infinity;
+
     const markers: SeriesMarker<Time>[] = [];
     for (const trade of trades) {
       const entryTime = (Math.floor(
@@ -148,6 +151,10 @@ export default function BacktestChart({
       const exitTime = (Math.floor(
         new Date(trade.exitTime).getTime() / 1000,
       )) as Time;
+
+      // Skip markers outside candle range
+      if ((entryTime as number) < firstCandleTime || (exitTime as number) > lastCandleTime) continue;
+
       const isShort = trade.side === 'short';
 
       markers.push({
