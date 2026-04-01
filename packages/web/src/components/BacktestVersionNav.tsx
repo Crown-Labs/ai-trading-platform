@@ -85,6 +85,18 @@ export default function BacktestVersionNav({
         )}
       </div>
 
+      {/* Insufficient historical data warning */}
+      {activeRun?.result.dataRange?.hasInsufficientData && (
+        <div className="mt-2 flex items-center gap-2 text-xs bg-orange-500/10 border border-orange-500/20 rounded-md px-3 py-1.5">
+          <span className="text-orange-400">⚠️</span>
+          <span className="text-orange-300">
+            Insufficient historical data for indicator warm-up (
+            {activeRun.result.dataRange.warmupBars} bars needed before {activeRun.result.dataRange.requestedStart}).
+            Results may be less accurate — consider using a longer date range.
+          </span>
+        </div>
+      )}
+
       {/* Data coverage warning */}
       {activeRun?.result.dataRange && !activeRun.result.dataRange.isComplete && (
         <div className="mt-2 flex items-center gap-2 text-xs bg-yellow-500/10 border border-yellow-500/20 rounded-md px-3 py-1.5">

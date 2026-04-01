@@ -42,9 +42,10 @@ export class BacktestService {
       : undefined;
 
     // Pre-load warmup candles before startDate so indicators are valid from bar 0
-    const fetchStartTime = startTime
-      ? startTime - this.getWarmupMs(inputStrategy.indicator, inputStrategy.market.timeframe)
-      : undefined;
+    const warmupMs = startTime
+      ? this.getWarmupMs(inputStrategy.indicator, inputStrategy.market.timeframe)
+      : 0;
+    const fetchStartTime = startTime ? startTime - warmupMs : undefined;
 
     const candles = await this.marketData.getCandles(
       inputStrategy.market.symbol,
@@ -119,13 +120,19 @@ export class BacktestService {
 
     const metrics = this.metricsEngine.calculate(filteredTrades, initialCapital);
 
-    // Build data coverage info
+    // Build data coverage info — use requested range candles only (after warmup filter)
     const dataRange: BacktestDataRange | undefined =
       inputStrategy.startDate && inputStrategy.endDate && candles.length > 0
         ? (() => {
             const reqStart = inputStrategy.startDate!;
             const reqEnd = inputStrategy.endDate!;
-            const actualStart = new Date(candles[0].timestamp).toISOString().split('T')[0];
+            // Find candles within requested range (excluding warmup pre-load)
+            const rangeCandles = startTime
+              ? candles.filter((c) => c.timestamp >= startTime)
+              : candles;
+            const actualStart = rangeCandles.length > 0
+              ? new Date(rangeCandles[0].timestamp).toISOString().split('T')[0]
+              : reqStart;
             const actualEnd = new Date(candles[candles.length - 1].timestamp).toISOString().split('T')[0];
             const requestedDays = Math.round(
               (new Date(reqEnd).getTime() - new Date(reqStart).getTime()) / (1000 * 60 * 60 * 24),
@@ -133,8 +140,12 @@ export class BacktestService {
             const actualDays = Math.round(
               (new Date(actualEnd).getTime() - new Date(actualStart).getTime()) / (1000 * 60 * 60 * 24),
             );
-            const isComplete = actualDays >= requestedDays * 0.95; // 5% tolerance
-            return { requestedStart: reqStart, requestedEnd: reqEnd, actualStart, actualEnd, totalCandles: candles.length, requestedDays, actualDays, isComplete };
+            const isComplete = rangeCandles.length > 0 && actualDays >= requestedDays * 0.95;
+            // Check if Binance had insufficient data for warmup (candles start after fetchStartTime)
+            const hasInsufficientData = fetchStartTime != null && candles.length > 0
+              && candles[0].timestamp > fetchStartTime + (1000 * 60 * 60 * 24); // >1 day gap
+            const warmupBars = warmupMs > 0 ? Math.ceil(warmupMs / (candles.length > 1 ? (candles[1].timestamp - candles[0].timestamp) : 14400000)) : 0;
+            return { requestedStart: reqStart, requestedEnd: reqEnd, actualStart, actualEnd, totalCandles: rangeCandles.length, requestedDays, actualDays, isComplete, warmupBars, hasInsufficientData };
           })()
         : undefined;
 
