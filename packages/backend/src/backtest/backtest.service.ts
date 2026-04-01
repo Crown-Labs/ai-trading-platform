@@ -99,7 +99,7 @@ export class BacktestService {
       this.logger.warn(`   3. Indicators have too many NaN values`);
     }
 
-    const metrics = this.metricsEngine.calculate(trades);
+    const metrics = this.metricsEngine.calculate(trades, initialCapital);
 
     // Build data coverage info
     const dataRange: BacktestDataRange | undefined =
