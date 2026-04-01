@@ -56,6 +56,34 @@ export function generatePineScript(strategy: StrategyDSL): string {
   const commission = exec?.commission != null ? exec.commission * 100 : 0.1;
   const initialCapital = (strategy as any).initialCapital ?? DEFAULT_INITIAL_CAPITAL;
 
+  // Auto-detect indicators used in conditions but not declared in DSL
+  const allConditions = [
+    ...strategy.entry.condition,
+    ...(strategy.entry.short_condition ?? []),
+    ...strategy.exit.condition,
+    ...(strategy.exit.short_condition ?? []),
+  ].join(' ');
+
+  const autoInd = { ...ind };
+  if (!autoInd.bbands && /\bbb_(upper|middle|lower)\b/.test(allConditions)) {
+    autoInd.bbands = { period: 20, stddev: 2 };
+  }
+  if (!autoInd.macd && /\bmacd\b/.test(allConditions)) {
+    autoInd.macd = { fast: 12, slow: 26, signal: 9 };
+  }
+  if (!autoInd.stoch && /\bstoch_[kd]\b/.test(allConditions)) {
+    autoInd.stoch = { kPeriod: 14, dPeriod: 3 };
+  }
+  if (!autoInd.kc && /\bkc_(upper|middle|lower)\b/.test(allConditions)) {
+    autoInd.kc = { period: 20, multiple: 2 };
+  }
+  if (!autoInd.aroon && /\baroon_(up|down)\b/.test(allConditions)) {
+    autoInd.aroon = 25;
+  }
+
+  // Use auto-injected indicators from here on
+  Object.assign(ind, autoInd);
+
   const lines: string[] = [];
 
   // Header
