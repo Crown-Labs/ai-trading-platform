@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { StrategyDSL, BacktestRun, DEFAULT_INITIAL_CAPITAL } from '@ai-trading/shared';
+import { StrategyDSL, BacktestRun, DEFAULT_INITIAL_CAPITAL, DEFAULT_POSITION_SIZE } from '@ai-trading/shared';
 import YAML from 'yaml';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChatSession, ChatMessage } from '../types/chat';
+
 import { saveRunData } from '../lib/trade-store';
 import { useQueryClient } from '@tanstack/react-query';
 import { API_BASE } from '../lib/api';
@@ -80,8 +81,7 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
       !parsed.entry?.condition?.length ||
       !parsed.exit?.condition?.length ||
       parsed.risk?.stop_loss == null ||
-      parsed.risk?.take_profit == null ||
-      parsed.risk?.position_size == null
+      parsed.risk?.take_profit == null
     ) {
       return null;
     }
@@ -108,7 +108,7 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
       risk: {
         stop_loss: parsed.risk.stop_loss,
         take_profit: parsed.risk.take_profit,
-        position_size: parsed.risk.position_size,
+        position_size: parsed.risk.position_size ?? DEFAULT_POSITION_SIZE,
       },
       ...(parsed.execution && { execution: parsed.execution }),
     };
@@ -276,17 +276,15 @@ Please analyze these results and suggest specific improvements to optimize the s
           }
 
           setStreamingText('');
-          // Parse new strategy suggestion from AI analysis response
+          // Attach strategy to message for history access — never override session.strategy from analysis
           const suggestedStrategy = parseStrategyFromResponse(fullText);
           onUpdate({
             messages: [
               ...messagesWithRun,
-              { role: 'assistant', content: fullText },
+              { role: 'assistant', content: fullText, ...(suggestedStrategy && { strategy: suggestedStrategy }) },
             ],
             backtestResult,
             candles,
-            // Update strategy if AI suggested a new one in the analysis
-            ...(suggestedStrategy && { strategy: suggestedStrategy }),
           });
         }
       }
@@ -319,19 +317,8 @@ Please analyze these results and suggest specific improvements to optimize the s
     setLoading(true);
     setStreamingText('');
 
-    // Fire strategy parse in parallel (non-blocking)
-    void fetch(API_BASE + '/api/strategy/parse', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: userMessage }),
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.strategy) {
-          onUpdate({ strategy: data.strategy });
-        }
-      })
-      .catch(() => { /* Ignore — chat-based fallback still runs */ });
+    // Strategy is parsed from AI chat response via parseStrategyFromResponse()
+    // /api/strategy/parse endpoint is no longer called from the frontend
 
     try {
       const res = await fetch(API_BASE + '/api/ai/chat', {
@@ -381,16 +368,20 @@ Please analyze these results and suggest specific improvements to optimize the s
         }
       }
 
+      const parsedStrategy = parseStrategyFromResponse(fullText);
+      const hasActiveStrategy = !!session.strategy;
+
+      // Attach strategy to message so it's always accessible in history
       const finalMessages: ChatMessage[] = [
         ...newMessages,
-        { role: 'assistant', content: fullText },
+        { role: 'assistant', content: fullText, ...(parsedStrategy && { strategy: parsedStrategy }) },
       ];
       setStreamingText('');
 
-      const strategy = parseStrategyFromResponse(fullText);
       onUpdate({
         messages: finalMessages,
-        ...(strategy && { strategy }),
+        // First strategy → auto-set as active; subsequent → user picks from history
+        ...(parsedStrategy && !hasActiveStrategy && { strategy: parsedStrategy }),
       });
     } catch {
       onUpdate({
@@ -505,8 +496,46 @@ Please analyze these results and suggest specific improvements to optimize the s
               <div className="w-7 h-7 rounded-full bg-dark-600 border border-primary-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
                 <span className="text-primary-400 text-xs font-bold">AI</span>
               </div>
-              <div className="max-w-[85%] bg-dark-700 text-gray-200 px-4 py-2.5 rounded-2xl rounded-tl-sm text-sm">
-                <div className="font-sans">{renderContent(msg.content)}</div>
+              <div className="max-w-[85%] space-y-2">
+                <div className="bg-dark-700 text-gray-200 px-4 py-2.5 rounded-2xl rounded-tl-sm text-sm">
+                  <div className="font-sans">{renderContent(msg.content)}</div>
+                </div>
+                {/* Strategy card attached to this message */}
+                {msg.strategy && (
+                  <div className="bg-dark-800 border border-primary-500/20 rounded-xl px-3 py-2.5 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-primary-400 font-medium truncate">✨ {msg.strategy.name}</p>
+                        <p className="text-gray-500 mt-0.5">
+                          {msg.strategy.market.symbol} · {msg.strategy.market.timeframe} · SL {msg.strategy.risk.stop_loss}% · TP {msg.strategy.risk.take_profit}%
+                        </p>
+                      </div>
+                      {(() => {
+                          const activeRun = session.backtestRuns?.find(r => r.id === session.activeRunId);
+                          const isActive = !activeRun
+                            ? session.strategy?.name === msg.strategy.name
+                            : activeRun.strategy.name === msg.strategy.name;
+                          return (
+                            <button
+                              onClick={() => onUpdate({
+                                strategy: msg.strategy,
+                                activeRunId: undefined, // clear run so DSL card shows new strategy
+                                backtestResult: undefined,
+                              })}
+                              className={`flex-shrink-0 px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                                isActive
+                                  ? 'bg-primary-600/30 text-primary-300 cursor-default'
+                                  : 'bg-primary-600 hover:bg-primary-500 text-white'
+                              }`}
+                              disabled={isActive}
+                            >
+                              {isActive ? 'Active' : 'Apply'}
+                            </button>
+                          );
+                        })()}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ),

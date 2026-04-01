@@ -4,11 +4,11 @@ import { AppService } from './app.service';
 import { MarketDataModule } from './market-data/market-data.module';
 import { IndicatorsModule } from './indicators/indicators.module';
 import { BacktestModule } from './backtest/backtest.module';
-import { StrategyModule } from './strategy/strategy.module';
+
 import { AiModule } from './ai/ai.module';
 
 @Module({
-  imports: [MarketDataModule, IndicatorsModule, BacktestModule, StrategyModule, AiModule],
+  imports: [MarketDataModule, IndicatorsModule, BacktestModule, AiModule],
   controllers: [AppController],
   providers: [AppService],
 })

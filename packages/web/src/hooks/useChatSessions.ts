@@ -82,9 +82,10 @@ export function useChatSessions() {
       setSessions((prev) =>
         prev.map((s) => {
           if (s.id !== id) return s;
-          // Only overwrite keys that are explicitly provided (not undefined)
+          // Keys that can be explicitly cleared by setting to undefined
+          const CLEARABLE_KEYS = ['activeRunId', 'backtestResult', 'candles', 'suggestedStrategy'];
           const filtered = Object.fromEntries(
-            Object.entries(partial).filter(([, v]) => v !== undefined),
+            Object.entries(partial).filter(([k, v]) => v !== undefined || CLEARABLE_KEYS.includes(k)),
           );
           const updated = { ...s, ...filtered };
           // Auto-title on first exchange (user + assistant)

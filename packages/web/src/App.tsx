@@ -108,9 +108,9 @@ function App() {
                       candles={candles}
                       trades={trades}
                       symbol={strategy?.market?.symbol ?? 'BTCUSDT'}
-                      defaultTimeframe={
-                        strategy?.market?.timeframe ?? '1h'
-                      }
+                      defaultTimeframe={strategy?.market?.timeframe ?? '1h'}
+                      startDate={activeRun?.startDate ?? strategy?.startDate}
+                      endDate={activeRun?.endDate ?? strategy?.endDate}
                     />
                   )}
                   <TradeTable trades={trades} />

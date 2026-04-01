@@ -88,7 +88,7 @@ export function generatePineScript(strategy: StrategyDSL): string {
 
   // Header
   lines.push(`//@version=5`);
-  lines.push(`strategy("${strategy.name}", overlay=true, initial_capital=${initialCapital}, default_qty_type=strategy.percent_of_equity, default_qty_value=${risk.position_size}, commission_type=strategy.commission.percent, commission_value=${commission.toFixed(3)})`);
+  lines.push(`strategy("${strategy.name}", overlay=true, initial_capital=${initialCapital}, pyramiding=0, default_qty_type=strategy.percent_of_equity, default_qty_value=${risk.position_size}, commission_type=strategy.commission.percent, commission_value=${commission.toFixed(3)})`);
   lines.push(``);
 
   // Market info comment
@@ -228,11 +228,11 @@ export function generatePineScript(strategy: StrategyDSL): string {
 
   // Strategy Logic
   lines.push(`// ─── Strategy Logic ───────────────────────────────────────`);
-  lines.push(`// Only enter when flat (matches platform: no auto position reversal)`);
-  lines.push(`if longCondition and strategy.position_size == 0`);
+  lines.push(`// Only enter when no open trade (matches platform: no auto-reversal, no pyramiding)`);
+  lines.push(`if longCondition and strategy.opentrades == 0`);
   lines.push(`    strategy.entry("Long", strategy.long)`);
   lines.push(``);
-  lines.push(`if shortCondition and strategy.position_size == 0`);
+  lines.push(`if shortCondition and strategy.opentrades == 0`);
   lines.push(`    strategy.entry("Short", strategy.short)`);
   lines.push(``);
   lines.push(`// Stop Loss & Take Profit`);

@@ -1,4 +1,5 @@
 export const DEFAULT_INITIAL_CAPITAL = 1_000_000;
+export const DEFAULT_POSITION_SIZE = 100; // % of equity per trade (matches TradingView default)
 
 export interface ExecutionParams {
   commission: number;   // % as decimal e.g. 0.001 for 0.1%
@@ -55,7 +56,7 @@ export interface StrategyDSL {
   risk: {
     stop_loss: number;
     take_profit: number;
-    position_size: number;
+    position_size?: number; // default: DEFAULT_POSITION_SIZE (100)
   };
   execution?: ExecutionParams;
   startDate?: string;
@@ -89,12 +90,14 @@ export interface BacktestMetrics {
 export interface BacktestDataRange {
   requestedStart: string;   // ISO date from strategy.startDate
   requestedEnd: string;     // ISO date from strategy.endDate
-  actualStart: string;      // ISO date of first candle
+  actualStart: string;      // ISO date of first candle in range
   actualEnd: string;        // ISO date of last candle
   totalCandles: number;
   requestedDays: number;
   actualDays: number;
   isComplete: boolean;      // true if actual >= requested
+  warmupBars?: number;      // extra bars pre-loaded for indicator warm-up
+  hasInsufficientData?: boolean; // true if Binance had no data for the warmup period
 }
 
 export interface BacktestResult {

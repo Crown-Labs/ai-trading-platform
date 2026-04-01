@@ -6,6 +6,7 @@ import {
   Trade,
   OHLCVCandle,
   DEFAULT_INITIAL_CAPITAL,
+  DEFAULT_POSITION_SIZE,
 } from '@ai-trading/shared';
 import { MarketDataService } from '../market-data/market-data.service';
 import { IndicatorEngine } from './engines/indicator.engine';
@@ -39,12 +40,19 @@ export class BacktestService {
     const endTime = inputStrategy.endDate
       ? new Date(inputStrategy.endDate).getTime()
       : undefined;
+
+    // Pre-load warmup candles before startDate so indicators are valid from bar 0
+    const warmupMs = startTime
+      ? this.getWarmupMs(inputStrategy.indicator, inputStrategy.market.timeframe)
+      : 0;
+    const fetchStartTime = startTime ? startTime - warmupMs : undefined;
+
     const candles = await this.marketData.getCandles(
       inputStrategy.market.symbol,
       inputStrategy.market.timeframe,
-      startTime,
+      fetchStartTime ?? startTime,
       endTime,
-      startTime ? undefined : 500,
+      fetchStartTime ? undefined : 500,
     );
 
     this.logger.log(`✅ Fetched ${candles.length} candles for ${inputStrategy.market.symbol} (${inputStrategy.market.timeframe})`);
@@ -72,7 +80,7 @@ export class BacktestService {
       commission: strategy.execution?.commission ?? DEFAULT_COMMISSION,
       slippage: strategy.execution?.slippage ?? DEFAULT_SLIPPAGE,
       leverage: strategy.execution?.leverage ?? DEFAULT_LEVERAGE,
-      positionSize: strategy.risk.position_size,
+      positionSize: strategy.risk.position_size ?? DEFAULT_POSITION_SIZE,
     };
 
     const useNextBar =
@@ -100,15 +108,31 @@ export class BacktestService {
       this.logger.warn(`   3. Indicators have too many NaN values`);
     }
 
-    const metrics = this.metricsEngine.calculate(trades, initialCapital);
+    // Filter trades to only include those within the requested startDate range
+    // (pre-loaded warmup candles may produce trades before startDate which we exclude)
+    const filteredTrades = startTime
+      ? trades.filter((t) => new Date(t.entryTime).getTime() >= startTime)
+      : trades;
 
-    // Build data coverage info
+    if (trades.length !== filteredTrades.length) {
+      this.logger.log(`📊 Filtered ${trades.length - filteredTrades.length} warm-up trades before startDate`);
+    }
+
+    const metrics = this.metricsEngine.calculate(filteredTrades, initialCapital);
+
+    // Build data coverage info — use requested range candles only (after warmup filter)
     const dataRange: BacktestDataRange | undefined =
       inputStrategy.startDate && inputStrategy.endDate && candles.length > 0
         ? (() => {
             const reqStart = inputStrategy.startDate!;
             const reqEnd = inputStrategy.endDate!;
-            const actualStart = new Date(candles[0].timestamp).toISOString().split('T')[0];
+            // Find candles within requested range (excluding warmup pre-load)
+            const rangeCandles = startTime
+              ? candles.filter((c) => c.timestamp >= startTime)
+              : candles;
+            const actualStart = rangeCandles.length > 0
+              ? new Date(rangeCandles[0].timestamp).toISOString().split('T')[0]
+              : reqStart;
             const actualEnd = new Date(candles[candles.length - 1].timestamp).toISOString().split('T')[0];
             const requestedDays = Math.round(
               (new Date(reqEnd).getTime() - new Date(reqStart).getTime()) / (1000 * 60 * 60 * 24),
@@ -116,12 +140,46 @@ export class BacktestService {
             const actualDays = Math.round(
               (new Date(actualEnd).getTime() - new Date(actualStart).getTime()) / (1000 * 60 * 60 * 24),
             );
-            const isComplete = actualDays >= requestedDays * 0.95; // 5% tolerance
-            return { requestedStart: reqStart, requestedEnd: reqEnd, actualStart, actualEnd, totalCandles: candles.length, requestedDays, actualDays, isComplete };
+            const isComplete = rangeCandles.length > 0 && actualDays >= requestedDays * 0.95;
+            // Check if Binance had insufficient data for warmup (candles start after fetchStartTime)
+            const hasInsufficientData = fetchStartTime != null && candles.length > 0
+              && candles[0].timestamp > fetchStartTime + (1000 * 60 * 60 * 24); // >1 day gap
+            const warmupBars = warmupMs > 0 ? Math.ceil(warmupMs / (candles.length > 1 ? (candles[1].timestamp - candles[0].timestamp) : 14400000)) : 0;
+            return { requestedStart: reqStart, requestedEnd: reqEnd, actualStart, actualEnd, totalCandles: rangeCandles.length, requestedDays, actualDays, isComplete, warmupBars, hasInsufficientData };
           })()
         : undefined;
 
-    return { strategy, trades, metrics, dataRange };
+    return { strategy, trades: filteredTrades, metrics, dataRange };
+  }
+
+  /**
+   * Calculate extra candles needed before startDate for indicator warm-up.
+   * Returns milliseconds to subtract from startDate.
+   */
+  private getWarmupMs(indicator: StrategyDSL['indicator'], timeframe: string): number {
+    const timeframeMs: Record<string, number> = {
+      '1m': 60_000, '5m': 300_000, '15m': 900_000,
+      '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000,
+    };
+    const tfMs = timeframeMs[timeframe] ?? 3_600_000;
+
+    // Find max period across all indicators
+    let maxPeriod = 0;
+    for (const [, value] of Object.entries(indicator ?? {})) {
+      if (value == null) continue;
+      if (typeof value === 'number') maxPeriod = Math.max(maxPeriod, value);
+      if (typeof value === 'object') {
+        const periods = ['period', 'fast', 'slow', 'kPeriod', 'dPeriod']
+          .map((k) => (value as any)[k])
+          .filter((v) => typeof v === 'number');
+        maxPeriod = Math.max(maxPeriod, ...periods);
+      }
+    }
+
+    // Add 20% buffer for safety
+    const warmupBars = Math.ceil(maxPeriod * 1.2);
+    this.logger.log(`📊 Warm-up: ${warmupBars} bars (${maxPeriod} max period × 1.2) for ${timeframe}`);
+    return warmupBars * tfMs;
   }
 
   private findFirstValidIndex(indicators: Record<string, number[]>): number {
