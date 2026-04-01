@@ -24,7 +24,7 @@ function formatPnl(n: number) {
 
 export default function TradeTable({ trades }: TradeTableProps) {
   const [page, setPage] = useState(1);
-  const [sortDesc, setSortDesc] = useState(true); // newest first by default
+  const [sortDesc, setSortDesc] = useState(false); // oldest first by default (matches TradingView)
 
   const sortedTrades = [...trades].sort((a, b) => {
     const diff = new Date(a.entryTime).getTime() - new Date(b.entryTime).getTime();
