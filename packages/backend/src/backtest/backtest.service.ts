@@ -141,7 +141,7 @@ export class BacktestService {
     indicators: Record<string, number[]>,
     entry: { condition: string[]; short_condition?: string[] },
     exit: { condition: string[]; short_condition?: string[] },
-    risk: { stop_loss: number; take_profit: number; position_size: number },
+    risk: { stop_loss: number; take_profit: number; position_size?: number },
     execParams: ExecutionParams,
     useNextBar: boolean,
   ): Trade[] {
