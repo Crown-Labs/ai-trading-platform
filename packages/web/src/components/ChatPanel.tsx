@@ -127,7 +127,7 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
     startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     endDate: new Date().toISOString().slice(0, 10),
   });
-  const [initialCapital, setInitialCapital] = useState(10000);
+  const [initialCapital, setInitialCapital] = useState(1000000);
 
   const PRESETS = [
     { label: '3M', months: 3 },

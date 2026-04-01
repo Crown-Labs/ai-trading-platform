@@ -16,7 +16,7 @@ import { MetricsEngine } from './engines/metrics.engine';
 const DEFAULT_COMMISSION = 0.001;
 const DEFAULT_SLIPPAGE = 0.0005;
 const DEFAULT_LEVERAGE = 1;
-const DEFAULT_INITIAL_CAPITAL = 10000;
+const DEFAULT_INITIAL_CAPITAL = 1000000;
 
 @Injectable()
 export class BacktestService {

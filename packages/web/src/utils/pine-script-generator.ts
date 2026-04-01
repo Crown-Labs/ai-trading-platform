@@ -54,7 +54,7 @@ export function generatePineScript(strategy: StrategyDSL): string {
   const exec = strategy.execution;
   const leverage = exec?.leverage ?? 1;
   const commission = exec?.commission != null ? exec.commission * 100 : 0.1;
-  const initialCapital = (strategy as any).initialCapital ?? 10000;
+  const initialCapital = (strategy as any).initialCapital ?? 1000000;
 
   const lines: string[] = [];
 
