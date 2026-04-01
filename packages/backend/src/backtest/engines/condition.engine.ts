@@ -119,7 +119,7 @@ export class ConditionEngine {
         const varName = n.name.toLowerCase();
         if (values[varName] !== undefined) {
           const val = values[varName][index];
-          if (val === undefined || isNaN(val)) return 0;
+          if (val === undefined || isNaN(val)) return NaN;
           return val;
         }
         this.logger.warn(`Unknown variable "${varName}" in condition`);
