@@ -14,15 +14,35 @@ export default function StrategyDSLViewer({ strategy }: StrategyDSLViewerProps) 
 
   const ind = strategy.indicator ?? {};
   const indicators = [
-    ind.rsi != null && `RSI(${ind.rsi})`,
+    // Trend — Moving Averages
     ind.ema_fast != null && `EMA_F(${ind.ema_fast})`,
     ind.ema_slow != null && `EMA_S(${ind.ema_slow})`,
     ind.sma != null && `SMA(${ind.sma})`,
+    ind.wma != null && `WMA(${ind.wma})`,
+    ind.dema != null && `DEMA(${ind.dema})`,
+    ind.tema != null && `TEMA(${ind.tema})`,
+    ind.hma != null && `HMA(${ind.hma})`,
+    // Momentum
+    ind.rsi != null && `RSI(${ind.rsi})`,
     ind.macd != null && `MACD(${(ind.macd as any).fast ?? 12},${(ind.macd as any).slow ?? 26})`,
-    ind.bbands != null && `BB(${(ind.bbands as any).period ?? 20},${(ind.bbands as any).stddev ?? 2})`,
+    ind.cci != null && `CCI(${ind.cci})`,
+    ind.roc != null && `ROC(${ind.roc})`,
+    ind.stochrsi != null && `StochRSI(${ind.stochrsi})`,
+    ind.willr != null && `WillR(${ind.willr})`,
     ind.stoch != null && `STOCH(${(ind.stoch as any).kPeriod ?? 14})`,
-    ind.adx != null && `ADX(${ind.adx})`,
+    // Volatility
     ind.atr != null && `ATR(${ind.atr})`,
+    ind.bbands != null && `BB(${(ind.bbands as any).period ?? 20},${(ind.bbands as any).stddev ?? 2})`,
+    ind.kc != null && `KC(${(ind.kc as any).period ?? 20})`,
+    // Trend
+    ind.adx != null && `ADX(${ind.adx})`,
+    ind.aroon != null && `Aroon(${ind.aroon})`,
+    ind.psar != null && `PSAR(${(ind.psar as any).step ?? 0.02})`,
+    // Volume
+    ind.vwap != null && `VWAP`,
+    ind.obv != null && `OBV`,
+    ind.mfi != null && `MFI(${ind.mfi})`,
+    ind.cmf != null && `CMF(${ind.cmf})`,
   ].filter(Boolean) as string[];
 
   // Close dropdown on outside click
