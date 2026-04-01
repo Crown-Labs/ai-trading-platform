@@ -24,7 +24,7 @@ export default function StrategyDSLViewer({ strategy }: StrategyDSLViewerProps) 
     ind.hma != null && `HMA(${ind.hma})`,
     // Momentum
     ind.rsi != null && `RSI(${ind.rsi})`,
-    ind.macd != null && `MACD(${(ind.macd as any).fast ?? 12},${(ind.macd as any).slow ?? 26})`,
+    ind.macd != null && `MACD(${(ind.macd as any).fast ?? 12},${(ind.macd as any).slow ?? 26},${(ind.macd as any).signal ?? 9})`,
     ind.cci != null && `CCI(${ind.cci})`,
     ind.roc != null && `ROC(${ind.roc})`,
     ind.stochrsi != null && `StochRSI(${ind.stochrsi})`,
