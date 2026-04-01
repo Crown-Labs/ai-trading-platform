@@ -1,0 +1,36 @@
+{
+  "gateway": {
+    "bind": "lan",
+    "mode": "local",
+    "auth": {
+      "mode": "token"
+    },
+    "http": {
+      "endpoints": {
+        "chatCompletions": { "enabled": true }
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "anthropic/claude-sonnet-4-6"
+      }
+    },
+    "list": [
+      {
+        "id": "strategy-advisor",
+        "default": true,
+        "name": "Strategy Advisor",
+        "workspace": "/home/node/.openclaw/workspace-strategy-advisor",
+        "tools": {
+          "profile": "minimal",
+          "deny": ["Bash", "Write", "Edit", "NotebookEdit"]
+        },
+        "subagents": {
+          "allowAgents": []
+        }
+      }
+    ]
+  }
+}

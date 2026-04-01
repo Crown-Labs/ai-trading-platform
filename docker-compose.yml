@@ -1,0 +1,56 @@
+services:
+  # ── OpenClaw AI Gateway ──────────────────────────────────────────
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:latest
+    container_name: ai-trading-openclaw
+    restart: unless-stopped
+    ports:
+      - "18789:18789"
+    volumes:
+      - openclaw-data:/root/.openclaw
+      - ./openclaw/SOUL.md:/root/.openclaw/workspace-strategy-advisor/SOUL.md:ro
+      - ./openclaw/openclaw.json:/root/.openclaw/openclaw.json:ro
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    networks:
+      - ai-trading
+
+  # ── NestJS Backend ───────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: packages/backend/Dockerfile
+    container_name: ai-trading-backend
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - OPENCLAW_GATEWAY_URL=http://openclaw:18789
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - OPENCLAW_AGENT_ID=${OPENCLAW_AGENT_ID:-strategy-advisor}
+    depends_on:
+      - openclaw
+    networks:
+      - ai-trading
+
+  # ── Vite Web Frontend ────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
+    container_name: ai-trading-web
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - ai-trading
+
+networks:
+  ai-trading:
+    driver: bridge
+
+volumes:
+  openclaw-data:

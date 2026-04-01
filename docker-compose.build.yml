@@ -1,0 +1,22 @@
+# Local build: build images and push to Docker Hub
+#
+# Build:
+#   docker compose -f docker-compose.build.yml build
+#
+# Push:
+#   docker compose -f docker-compose.build.yml push
+
+services:
+  backend:
+    image: 0xthoth/ai-trading-backend:latest
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: packages/backend/Dockerfile
+
+  web:
+    image: 0xthoth/ai-trading-web:latest
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile

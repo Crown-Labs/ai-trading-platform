@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { ChatSession, ChatMessage } from '../types/chat';
 import { saveRunData } from '../lib/trade-store';
 import { useQueryClient } from '@tanstack/react-query';
+import { API_BASE } from '../lib/api';
 
 interface ChatPanelProps {
   session: ChatSession;
@@ -175,7 +176,7 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
         endDate: dateRange.endDate,
       };
 
-      const res = await fetch('http://localhost:4000/api/backtest/run', {
+      const res = await fetch(API_BASE + '/api/backtest/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ strategy: strategyWithDates }),
@@ -183,7 +184,7 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
       const backtestResult = await res.json();
 
       const candleRes = await fetch(
-        `http://localhost:4000/api/market-data/candles?symbol=${strategy.market.symbol}&interval=${strategy.market.timeframe}&startTime=${new Date(dateRange.startDate).getTime()}&endTime=${new Date(dateRange.endDate).getTime()}`,
+        `${API_BASE}/api/market-data/candles?symbol=${strategy.market.symbol}&interval=${strategy.market.timeframe}&startTime=${new Date(dateRange.startDate).getTime()}&endTime=${new Date(dateRange.endDate).getTime()}`,
       );
       const candles = candleRes.ok ? await candleRes.json() : [];
 
@@ -238,7 +239,7 @@ Please analyze these results and suggest specific improvements to optimize the s
 
       setStreamingText('');
 
-      const aiRes = await fetch('http://localhost:4000/api/ai/chat', {
+      const aiRes = await fetch(API_BASE + '/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -317,7 +318,7 @@ Please analyze these results and suggest specific improvements to optimize the s
     setStreamingText('');
 
     // Fire strategy parse in parallel (non-blocking)
-    void fetch('http://localhost:4000/api/strategy/parse', {
+    void fetch(API_BASE + '/api/strategy/parse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: userMessage }),
@@ -331,7 +332,7 @@ Please analyze these results and suggest specific improvements to optimize the s
       .catch(() => { /* Ignore — chat-based fallback still runs */ });
 
     try {
-      const res = await fetch('http://localhost:4000/api/ai/chat', {
+      const res = await fetch(API_BASE + '/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -97,6 +97,45 @@ market:
 \`\`\`
 Do NOT output raw YAML without the \`\`\`strategy fence. The backtest button will NOT appear without it.
 
+## CRITICAL: YAML Formatting Rules
+The YAML block MUST be machine-parseable. Follow these rules strictly:
+- Use exactly 2 spaces for indentation — NEVER use tabs
+- ALL condition strings MUST be wrapped in double quotes: - "rsi < 30"
+- Numbers must be plain without quotes: stop_loss: 3 (NOT "3")
+- String values like name, symbol, timeframe must be plain: symbol: BTCUSDT (NOT "BTCUSDT")
+- Complex indicators use flow mapping: macd: { fast: 12, slow: 26, signal: 9 }
+- Array items use dash-space prefix: - "condition string"
+- No trailing whitespace on any line
+- No YAML document separators (---)
+- No comments inside the YAML block
+- The structure must match the example exactly — do not add extra keys or change nesting
+
+Bad example (WILL BREAK the parser):
+\`\`\`
+entry:
+  condition:
+    - rsi < 30          # WRONG: missing quotes around condition
+  condition:             # WRONG: duplicate key
+    - rsi > 70 and
+      ema_fast > ema_slow  # WRONG: multi-line condition
+risk:
+  stop_loss: "3"         # WRONG: number in quotes
+\`\`\`
+
+Good example:
+\`\`\`
+entry:
+  condition:
+    - "rsi < 30"
+exit:
+  condition:
+    - "rsi > 70 and ema_fast > ema_slow"
+risk:
+  stop_loss: 3
+  take_profit: 8
+  position_size: 10
+\`\`\`
+
 ## Supported Indicators
 - RSI: rsi (period) e.g. rsi: 14
 - EMA: ema_fast, ema_slow (period) e.g. ema_fast: 20
@@ -156,7 +195,7 @@ export class AiService {
   }
 
   private get agentId(): string {
-    return process.env.OPENCLAW_AGENT_ID || 'trading-bot';
+    return process.env.OPENCLAW_AGENT_ID || 'strategy-advisor';
   }
 
   async streamStrategyChat(
@@ -172,7 +211,7 @@ export class AiService {
     const url = `${this.gatewayUrl}/v1/chat/completions`;
 
     const body = JSON.stringify({
-      model: `openclaw:${this.agentId}`,
+      model: `openclaw/${this.agentId}`,
       messages: fullMessages,
       stream: true,
       ...(sessionId && { user: sessionId }),
@@ -185,6 +224,7 @@ export class AiService {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.gatewayToken}`,
+        'x-openclaw-scopes': 'operator.write',
       },
       body,
     });
