@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { StrategyDSL, BacktestRun } from '@ai-trading/shared';
+import { StrategyDSL, BacktestRun, DEFAULT_INITIAL_CAPITAL } from '@ai-trading/shared';
 import YAML from 'yaml';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -127,7 +127,7 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
     startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     endDate: new Date().toISOString().slice(0, 10),
   });
-  const [initialCapital, setInitialCapital] = useState(1000000);
+  const [initialCapital, setInitialCapital] = useState(DEFAULT_INITIAL_CAPITAL);
 
   const PRESETS = [
     { label: '3M', months: 3 },

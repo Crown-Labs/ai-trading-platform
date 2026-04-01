@@ -1,4 +1,4 @@
-import { StrategyDSL } from '@ai-trading/shared';
+import { StrategyDSL, DEFAULT_INITIAL_CAPITAL } from '@ai-trading/shared';
 
 /**
  * Converts DSL condition string to Pine Script expression
@@ -54,7 +54,7 @@ export function generatePineScript(strategy: StrategyDSL): string {
   const exec = strategy.execution;
   const leverage = exec?.leverage ?? 1;
   const commission = exec?.commission != null ? exec.commission * 100 : 0.1;
-  const initialCapital = (strategy as any).initialCapital ?? 1000000;
+  const initialCapital = (strategy as any).initialCapital ?? DEFAULT_INITIAL_CAPITAL;
 
   const lines: string[] = [];
 

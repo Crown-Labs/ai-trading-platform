@@ -5,6 +5,7 @@ import {
   BacktestDataRange,
   Trade,
   OHLCVCandle,
+  DEFAULT_INITIAL_CAPITAL,
 } from '@ai-trading/shared';
 import { MarketDataService } from '../market-data/market-data.service';
 import { IndicatorEngine } from './engines/indicator.engine';
@@ -16,7 +17,7 @@ import { MetricsEngine } from './engines/metrics.engine';
 const DEFAULT_COMMISSION = 0.001;
 const DEFAULT_SLIPPAGE = 0.0005;
 const DEFAULT_LEVERAGE = 1;
-const DEFAULT_INITIAL_CAPITAL = 1000000;
+// DEFAULT_INITIAL_CAPITAL imported from @ai-trading/shared
 
 @Injectable()
 export class BacktestService {
