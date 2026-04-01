@@ -40,12 +40,18 @@ export class BacktestService {
     const endTime = inputStrategy.endDate
       ? new Date(inputStrategy.endDate).getTime()
       : undefined;
+
+    // Pre-load warmup candles before startDate so indicators are valid from bar 0
+    const fetchStartTime = startTime
+      ? startTime - this.getWarmupMs(inputStrategy.indicator, inputStrategy.market.timeframe)
+      : undefined;
+
     const candles = await this.marketData.getCandles(
       inputStrategy.market.symbol,
       inputStrategy.market.timeframe,
-      startTime,
+      fetchStartTime ?? startTime,
       endTime,
-      startTime ? undefined : 500,
+      fetchStartTime ? undefined : 500,
     );
 
     this.logger.log(`✅ Fetched ${candles.length} candles for ${inputStrategy.market.symbol} (${inputStrategy.market.timeframe})`);
@@ -101,7 +107,17 @@ export class BacktestService {
       this.logger.warn(`   3. Indicators have too many NaN values`);
     }
 
-    const metrics = this.metricsEngine.calculate(trades, initialCapital);
+    // Filter trades to only include those within the requested startDate range
+    // (pre-loaded warmup candles may produce trades before startDate which we exclude)
+    const filteredTrades = startTime
+      ? trades.filter((t) => new Date(t.entryTime).getTime() >= startTime)
+      : trades;
+
+    if (trades.length !== filteredTrades.length) {
+      this.logger.log(`📊 Filtered ${trades.length - filteredTrades.length} warm-up trades before startDate`);
+    }
+
+    const metrics = this.metricsEngine.calculate(filteredTrades, initialCapital);
 
     // Build data coverage info
     const dataRange: BacktestDataRange | undefined =
@@ -122,7 +138,37 @@ export class BacktestService {
           })()
         : undefined;
 
-    return { strategy, trades, metrics, dataRange };
+    return { strategy, trades: filteredTrades, metrics, dataRange };
+  }
+
+  /**
+   * Calculate extra candles needed before startDate for indicator warm-up.
+   * Returns milliseconds to subtract from startDate.
+   */
+  private getWarmupMs(indicator: StrategyDSL['indicator'], timeframe: string): number {
+    const timeframeMs: Record<string, number> = {
+      '1m': 60_000, '5m': 300_000, '15m': 900_000,
+      '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000,
+    };
+    const tfMs = timeframeMs[timeframe] ?? 3_600_000;
+
+    // Find max period across all indicators
+    let maxPeriod = 0;
+    for (const [, value] of Object.entries(indicator ?? {})) {
+      if (value == null) continue;
+      if (typeof value === 'number') maxPeriod = Math.max(maxPeriod, value);
+      if (typeof value === 'object') {
+        const periods = ['period', 'fast', 'slow', 'kPeriod', 'dPeriod']
+          .map((k) => (value as any)[k])
+          .filter((v) => typeof v === 'number');
+        maxPeriod = Math.max(maxPeriod, ...periods);
+      }
+    }
+
+    // Add 20% buffer for safety
+    const warmupBars = Math.ceil(maxPeriod * 1.2);
+    this.logger.log(`📊 Warm-up: ${warmupBars} bars (${maxPeriod} max period × 1.2) for ${timeframe}`);
+    return warmupBars * tfMs;
   }
 
   private findFirstValidIndex(indicators: Record<string, number[]>): number {
