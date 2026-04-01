@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Trading Platform — Minimal UI by Sara</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0b1120;
+    --surface: #131c2e;
+    --surface2: #1a2540;
+    --border: #1e2d45;
+    --border2: #243352;
+    --text: #e2e8f0;
+    --text-muted: #4a5c7a;
+    --text-dim: #2e3f5c;
+    --accent: #0ea5e9;
+    --accent-dim: rgba(14,165,233,.12);
+    --green: #22c55e;
+    --green-dim: rgba(34,197,94,.1);
+    --red: #ef4444;
+    --red-dim: rgba(239,68,68,.1);
+    --purple: #a855f7;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    font-size: 13px;
+    overflow: hidden;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    height: 48px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 7px;
+    font-weight: 600; font-size: 14px; color: var(--text);
+    letter-spacing: -.01em;
+  }
+  .logo-icon {
+    width: 24px; height: 24px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+  }
+  /* Steps — minimal version: just dots + labels, no boxes */
+  .steps {
+    display: flex; align-items: center; gap: 0;
+    font-size: 11px;
+  }
+  .step-item { display: flex; align-items: center; gap: 5px; color: var(--text-dim); }
+  .step-item.done { color: var(--text-muted); }
+  .step-item.active { color: var(--text); }
+  .step-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--border2); flex-shrink: 0;
+  }
+  .step-item.done .step-dot { background: var(--green); }
+  .step-item.active .step-dot { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
+  .step-sep { width: 16px; height: 1px; background: var(--border); margin: 0 2px; }
+  .step-sep.done { background: var(--border2); }
+  .header-conn { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }
+  .conn-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+
+  /* ─── MAIN ─── */
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* ─── SIDEBAR ─── */
+  .sidebar {
+    width: 200px; flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sidebar-top { padding: 12px 10px 8px; display: flex; flex-direction: column; gap: 6px; }
+  .sidebar-label { font-size: 10px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .07em; padding: 0 2px; }
+  .new-btn {
+    padding: 6px 10px; background: var(--accent-dim);
+    color: var(--accent); border: 1px solid rgba(14,165,233,.2);
+    border-radius: 7px; font-size: 12px; font-weight: 500; cursor: pointer;
+    display: flex; align-items: center; gap: 5px; width: 100%;
+    transition: background .15s;
+  }
+  .new-btn:hover { background: rgba(14,165,233,.2); }
+  .session-list { flex: 1; overflow-y: auto; padding: 0 6px 8px; }
+  .session {
+    padding: 7px 8px; border-radius: 7px; cursor: pointer;
+    margin-bottom: 1px; transition: background .15s;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .session:hover { background: var(--surface2); }
+  .session.active { background: var(--surface2); border-left: 2px solid var(--accent); padding-left: 6px; }
+  .session-name { font-size: 12px; color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .session-meta { font-size: 10px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; }
+  .ret-pos { color: var(--green); font-weight: 500; }
+  .ret-neg { color: var(--red); font-weight: 500; }
+
+  /* ─── CHAT ─── */
+  .chat-panel {
+    width: 420px; flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .chat-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .chat-title { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+  .chat-session-name { font-size: 11px; color: var(--text-muted); background: var(--surface2); border-radius: 5px; padding: 2px 7px; }
+  .chat-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 7px; }
+
+  .msg-user { display: flex; justify-content: flex-end; }
+  .bubble-user {
+    max-width: 76%; background: var(--accent);
+    color: #fff; padding: 7px 11px;
+    border-radius: 12px 12px 3px 12px; font-size: 12px; line-height: 1.5;
+  }
+  .msg-ai { display: flex; gap: 6px; align-items: flex-start; }
+  .ai-av {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: linear-gradient(135deg, #0369a1, #6d28d9);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; flex-shrink: 0; margin-top: 1px; color: #fff;
+  }
+  .bubble-ai {
+    max-width: 83%; background: var(--surface2);
+    color: #cbd5e1; padding: 7px 11px;
+    border-radius: 3px 12px 12px 12px; font-size: 12px; line-height: 1.6;
+  }
+  .bubble-ai strong { color: var(--text); }
+
+  /* Strategy detected — minimal: just a single thin line */
+  .strategy-bar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px; border-radius: 6px;
+    background: var(--green-dim);
+    border-left: 2px solid var(--green);
+    font-size: 11px; color: #86efac;
+    margin: 1px 0;
+  }
+
+  .typing-dots { display: flex; gap: 3px; align-items: center; }
+  .dot { width: 4px; height: 4px; background: var(--text-muted); border-radius: 50%; animation: bounce 1.2s infinite; }
+  .dot:nth-child(2) { animation-delay: .2s; }
+  .dot:nth-child(3) { animation-delay: .4s; }
+
+  /* Input */
+  .input-area { padding: 8px 10px; border-top: 1px solid var(--border); flex-shrink: 0; display: flex; gap: 6px; align-items: flex-end; }
+  .msg-input {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 9px; padding: 7px 11px; color: var(--text);
+    font-size: 12px; resize: none; outline: none; font-family: inherit; line-height: 1.5;
+  }
+  .msg-input:focus { border-color: rgba(14,165,233,.4); }
+  .msg-input::placeholder { color: var(--text-dim); }
+  .send-btn {
+    background: var(--accent); color: #fff; border: none;
+    border-radius: 9px; padding: 7px 13px; font-size: 12px; font-weight: 500;
+    cursor: pointer; flex-shrink: 0;
+  }
+
+  /* Backtest controls */
+  .bt-controls { padding: 8px 10px 10px; border-top: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+  .bt-label { font-size: 10px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; display: flex; align-items: center; justify-content: space-between; }
+  .bt-step { font-size: 9px; color: var(--text-dim); background: var(--surface2); border-radius: 4px; padding: 1px 5px; text-transform: none; letter-spacing: 0; }
+  .preset-row { display: flex; gap: 4px; align-items: center; }
+  .preset-label { font-size: 10px; color: var(--text-dim); }
+  .preset {
+    font-size: 11px; padding: 3px 7px; border-radius: 5px;
+    background: transparent; color: var(--text-muted);
+    border: 1px solid var(--border2); cursor: pointer;
+    transition: all .15s;
+  }
+  .preset:hover { border-color: var(--accent); color: var(--accent); }
+  .preset.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .date-row { display: flex; align-items: center; gap: 5px; }
+  .date-in {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 6px; padding: 4px 8px; color: var(--text);
+    font-size: 11px; outline: none; font-family: inherit; cursor: pointer;
+  }
+  .date-in:focus { border-color: rgba(14,165,233,.4); }
+  .date-sep { font-size: 11px; color: var(--text-dim); }
+  .run-btn {
+    width: 100%; padding: 8px; border-radius: 8px;
+    background: var(--accent); color: #fff;
+    font-size: 12px; font-weight: 600; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: opacity .15s;
+  }
+  .run-btn:hover { opacity: .85; }
+
+  /* ─── RESULTS ─── */
+  .results { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+  /* Version nav — minimal: just text buttons */
+  .version-row { display: flex; align-items: center; justify-content: space-between; }
+  .version-btns { display: flex; gap: 4px; }
+  .ver-btn {
+    padding: 3px 9px; border-radius: 5px; font-size: 11px;
+    background: transparent; color: var(--text-muted);
+    border: 1px solid var(--border2); cursor: pointer;
+  }
+  .ver-btn.active { background: var(--surface2); color: var(--text); border-color: var(--border2); }
+  .date-range-label { font-size: 10px; color: var(--text-dim); }
+
+  /* Cards — flat, no shadow */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; cursor: pointer; user-select: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color .2s;
+  }
+  .card-head.open { border-bottom-color: var(--border); }
+  .card-head-left { display: flex; align-items: center; gap: 7px; }
+  .card-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+  .card-tag { font-size: 10px; color: var(--text-dim); background: var(--surface2); border-radius: 4px; padding: 1px 6px; text-transform: none; letter-spacing: 0; font-weight: 500; }
+  .card-arrow { font-size: 9px; color: var(--text-dim); transition: transform .2s; }
+  .card-arrow.open { transform: rotate(90deg); }
+  .card-body { padding: 12px; display: none; }
+  .card-body.open { display: block; }
+
+  /* Stats — minimal: no card bg, just a clean grid */
+  .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: var(--border); border-radius: 8px; overflow: hidden; }
+  .stat { background: var(--surface); padding: 10px 12px; }
+  .stat-label { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
+  .stat-val { font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
+  .stat-val.g { color: var(--green); }
+  .stat-val.r { color: var(--red); }
+  .stat-val.w { color: var(--text); }
+  .stat-sub { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+
+  /* DSL — minimal code view */
+  .dsl-wrap { display: flex; flex-direction: column; gap: 6px; }
+  .dsl-row { display: flex; align-items: baseline; gap: 8px; }
+  .dsl-k { font-size: 10px; color: var(--text-muted); font-weight: 600; min-width: 72px; text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0; }
+  .dsl-v { font-size: 12px; color: var(--text); }
+  .dsl-divider { height: 1px; background: var(--border); margin: 4px 0; }
+  .dsl-code {
+    font-size: 11px; font-family: 'SF Mono', 'Fira Code', monospace;
+    color: #93c5fd; background: rgba(14,165,233,.06);
+    border: 1px solid rgba(14,165,233,.1); border-radius: 5px;
+    padding: 3px 8px; display: inline-block;
+  }
+  .risk-row { display: flex; gap: 6px; margin-top: 4px; }
+  .risk-pill { flex: 1; padding: 5px 8px; border-radius: 6px; background: var(--surface2); text-align: center; }
+  .risk-k { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .risk-v { font-size: 14px; font-weight: 700; }
+  .risk-v.r { color: var(--red); }
+  .risk-v.g { color: var(--green); }
+  .risk-v.b { color: var(--accent); }
+
+  /* Chart */
+  .chart-tabs { display: flex; gap: 1px; background: var(--border); border-radius: 6px; padding: 2px; margin-bottom: 10px; }
+  .ctab { padding: 4px 10px; border-radius: 4px; font-size: 11px; color: var(--text-dim); cursor: pointer; }
+  .ctab.active { background: var(--surface2); color: var(--text); }
+  .chart-box { background: var(--bg); border-radius: 7px; overflow: hidden; }
+  .chart-svg { width: 100%; height: 150px; display: block; }
+  .chart-leg { display: flex; gap: 10px; padding: 5px 8px; font-size: 10px; color: var(--text-dim); border-top: 1px solid var(--border); }
+
+  /* Heatmap */
+  .hm-months { display: grid; grid-template-columns: 34px repeat(12,1fr); gap: 2px; margin-bottom: 3px; }
+  .hm-ml { font-size: 9px; color: var(--text-dim); text-align: center; }
+  .hm-row { display: grid; grid-template-columns: 34px repeat(12,1fr); gap: 2px; margin-bottom: 2px; align-items: center; }
+  .hm-yl { font-size: 10px; color: var(--text-dim); text-align: right; padding-right: 5px; }
+  .hm { height: 20px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; cursor: default; }
+  .hm-0  { background: var(--surface2); color: var(--text-dim); }
+  .hm-p1 { background: rgba(34,197,94,.15); color: #86efac; }
+  .hm-p2 { background: rgba(34,197,94,.32); color: #4ade80; }
+  .hm-p3 { background: rgba(34,197,94,.55); color: #fff; }
+  .hm-p4 { background: rgba(34,197,94,.8);  color: #fff; }
+  .hm-n1 { background: rgba(239,68,68,.15); color: #fca5a5; }
+  .hm-n2 { background: rgba(239,68,68,.35); color: #f87171; }
+  .hm-n3 { background: rgba(239,68,68,.6);  color: #fff; }
+  .hm-legend { display: flex; align-items: center; gap: 5px; margin-top: 7px; font-size: 10px; color: var(--text-dim); }
+  .hml { width: 14px; height: 12px; border-radius: 2px; }
+
+  /* Trade table */
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { text-align: left; padding: 5px 7px; color: var(--text-dim); font-weight: 600; border-bottom: 1px solid var(--border); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+  td { padding: 5px 7px; border-bottom: 1px solid var(--border); color: #94a3b8; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.015); }
+  .buy  { color: var(--green); font-weight: 600; font-size: 10px; }
+  .sell { color: var(--red);   font-weight: 600; font-size: 10px; }
+  .pp { color: var(--green); }
+  .pn { color: var(--red); }
+  .load-more { text-align: center; padding: 7px; font-size: 11px; color: var(--text-dim); cursor: pointer; }
+  .load-more:hover { color: var(--text-muted); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+
+  @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-3px)} }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">📈</div>
+    AI Trading
+  </div>
+  <div class="steps">
+    <div class="step-item done"><div class="step-dot"></div> Describe</div>
+    <div class="step-sep done"></div>
+    <div class="step-item done"><div class="step-dot"></div> Strategy</div>
+    <div class="step-sep done"></div>
+    <div class="step-item active"><div class="step-dot"></div> Backtest</div>
+    <div class="step-sep"></div>
+    <div class="step-item"><div class="step-dot"></div> Optimize</div>
+  </div>
+  <div class="header-conn"><div class="conn-dot"></div> Connected</div>
+</header>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-label">Sessions</div>
+      <button class="new-btn">＋ New Strategy</button>
+    </div>
+    <div class="session-list">
+      <div class="session active">
+        <div class="session-name">RSI Reversal BTC</div>
+        <div class="session-meta">
+          <span>2h ago · 3 runs</span>
+          <span class="ret-pos">+42.8%</span>
+        </div>
+      </div>
+      <div class="session">
+        <div class="session-name">EMA Crossover ETH</div>
+        <div class="session-meta">
+          <span>Yesterday · 1 run</span>
+          <span class="ret-neg">-4.2%</span>
+        </div>
+      </div>
+      <div class="session">
+        <div class="session-name">MACD Momentum SOL</div>
+        <div class="session-meta">
+          <span>3 days ago · 2 runs</span>
+          <span class="ret-pos">+18.1%</span>
+        </div>
+      </div>
+      <div class="session">
+        <div class="session-name">Bollinger Bands BNB</div>
+        <div class="session-meta"><span>5 days ago</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="chat-panel">
+    <div class="chat-header">
+      <div class="chat-title">Chat</div>
+      <div class="chat-session-name">RSI Reversal BTC</div>
+    </div>
+
+    <div class="chat-messages">
+      <div class="msg-user">
+        <div class="bubble-user">Buy BTC when RSI drops below 30, sell when RSI hits 70. Stop loss 3%, take profit 9%</div>
+      </div>
+      <div class="msg-ai">
+        <div class="ai-av">🤖</div>
+        <div class="bubble-ai">
+          Got it — <strong>RSI Mean Reversion</strong> on BTC/USDT 1h.<br><br>
+          Entry: RSI &lt; 30 · Exit: RSI &gt; 70<br>
+          SL: 3% · TP: 9%<br><br>
+          Strategy locked. Choose date range and run backtest 👇
+        </div>
+      </div>
+      <div class="strategy-bar">
+        ✓ RSI Reversal · BTCUSDT · 1h
+      </div>
+      <div class="msg-user">
+        <div class="bubble-user">Run backtest for 1 year</div>
+      </div>
+      <div class="msg-ai">
+        <div class="ai-av">🤖</div>
+        <div class="bubble-ai">
+          Backtest done — <strong>+42.8% return</strong>, win rate 67.3%, Sharpe 1.84.<br><br>
+          To improve: tighten RSI entry to &lt;25, add volume filter, consider trailing stop on drawdown months.
+        </div>
+      </div>
+      <div class="msg-user">
+        <div class="bubble-user">Tighten RSI to 25 and add volume filter</div>
+      </div>
+      <div class="msg-ai">
+        <div class="ai-av">🤖</div>
+        <div class="bubble-ai"><div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <textarea class="msg-input" rows="2" placeholder="Ask for improvements or describe a strategy..."></textarea>
+      <button class="send-btn">Send</button>
+    </div>
+
+    <div class="bt-controls">
+      <div class="bt-label">
+        Backtest Range
+        <span class="bt-step">step 3</span>
+      </div>
+      <div class="preset-row">
+        <span class="preset-label">Quick:</span>
+        <button class="preset">3M</button>
+        <button class="preset">6M</button>
+        <button class="preset active">1Y</button>
+        <button class="preset">2Y</button>
+        <button class="preset">3Y</button>
+      </div>
+      <div class="date-row">
+        <input type="date" class="date-in" value="2024-01-01" />
+        <span class="date-sep">→</span>
+        <input type="date" class="date-in" value="2025-03-26" />
+      </div>
+      <button class="run-btn">▶ Run Backtest</button>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results">
+
+    <!-- Version nav -->
+    <div class="version-row">
+      <div class="version-btns">
+        <button class="ver-btn">v1</button>
+        <button class="ver-btn">v2</button>
+        <button class="ver-btn active">v3</button>
+      </div>
+      <div class="date-range-label">1 Jan 2024 → 26 Mar 2025</div>
+    </div>
+
+    <!-- ① Strategy DSL (collapsible, default closed) -->
+    <div class="card">
+      <div class="card-head" onclick="toggle(this)">
+        <div class="card-head-left">
+          <div class="card-label">Strategy</div>
+          <div class="card-tag">RSI Reversal BTC · v3</div>
+        </div>
+        <div class="card-arrow">▶</div>
+      </div>
+      <div class="card-body">
+        <div class="dsl-wrap">
+          <div class="dsl-row"><span class="dsl-k">Exchange</span><span class="dsl-v">Binance</span></div>
+          <div class="dsl-row"><span class="dsl-k">Symbol</span><span class="dsl-v">BTCUSDT</span></div>
+          <div class="dsl-row"><span class="dsl-k">Timeframe</span><span class="dsl-v">1h</span></div>
+          <div class="dsl-row"><span class="dsl-k">Indicator</span><span class="dsl-v">RSI(14) + Volume MA(20)</span></div>
+          <div class="dsl-divider"></div>
+          <div class="dsl-row"><span class="dsl-k">Entry</span><span class="dsl-code">rsi &lt; 25 AND volume &gt; vol_ma * 1.2</span></div>
+          <div class="dsl-row"><span class="dsl-k">Exit</span><span class="dsl-code">rsi &gt; 70 OR trailing_stop</span></div>
+          <div class="risk-row">
+            <div class="risk-pill"><div class="risk-k">Stop Loss</div><div class="risk-v r">3%</div></div>
+            <div class="risk-pill"><div class="risk-k">Take Profit</div><div class="risk-v g">9%</div></div>
+            <div class="risk-pill"><div class="risk-k">Position</div><div class="risk-v b">10%</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② Performance Metrics (open by default) -->
+    <div class="card">
+      <div class="card-head open" onclick="toggle(this)">
+        <div class="card-head-left">
+          <div class="card-label">Performance</div>
+          <div class="card-tag">220 trades</div>
+        </div>
+        <div class="card-arrow open">▶</div>
+      </div>
+      <div class="card-body open">
+        <div class="stats-grid">
+          <div class="stat">
+            <div class="stat-label">Total Return</div>
+            <div class="stat-val g">+42.8%</div>
+            <div class="stat-sub">vs BTC +38.1%</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Win Rate</div>
+            <div class="stat-val w">67.3%</div>
+            <div class="stat-sub">148 / 220</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Sharpe</div>
+            <div class="stat-val w">1.84</div>
+            <div class="stat-sub">Risk-adjusted</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Max Drawdown</div>
+            <div class="stat-val r">-12.4%</div>
+            <div class="stat-sub">Mar 2024</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Profit Factor</div>
+            <div class="stat-val g">2.31</div>
+            <div class="stat-sub">Gross P&amp;L ratio</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Avg Trade</div>
+            <div class="stat-val g">+1.94%</div>
+            <div class="stat-sub">Per closed trade</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ③ Equity Chart (open by default) -->
+    <div class="card">
+      <div class="card-head open" onclick="toggle(this)">
+        <div class="card-head-left">
+          <div class="card-label">Equity Curve</div>
+        </div>
+        <div class="card-arrow open">▶</div>
+      </div>
+      <div class="card-body open">
+        <div class="chart-tabs">
+          <div class="ctab active">Equity</div>
+          <div class="ctab">Drawdown</div>
+          <div class="ctab">Monthly PnL</div>
+        </div>
+        <div class="chart-box">
+          <svg class="chart-svg" viewBox="0 0 760 150" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.2"/>
+                <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <line x1="0" y1="37" x2="760" y2="37" stroke="#1e2d45" stroke-width="1"/>
+            <line x1="0" y1="75" x2="760" y2="75" stroke="#1e2d45" stroke-width="1"/>
+            <line x1="0" y1="112" x2="760" y2="112" stroke="#1e2d45" stroke-width="1"/>
+            <path d="M0,138 C40,130 70,120 110,102 C145,86 165,95 205,80 C240,66 265,74 300,58 C335,44 360,54 400,40 C440,26 470,32 510,18 C545,9 580,14 615,7 C650,2 700,4 735,2 C750,1.5 756,2 760,2 L760,150 L0,150 Z" fill="url(#g)"/>
+            <path d="M0,138 C40,130 70,120 110,102 C145,86 165,95 205,80 C240,66 265,74 300,58 C335,44 360,54 400,40 C440,26 470,32 510,18 C545,9 580,14 615,7 C650,2 700,4 735,2 C750,1.5 756,2 760,2" fill="none" stroke="#0ea5e9" stroke-width="1.5"/>
+            <circle cx="110" cy="102" r="3" fill="#22c55e" opacity=".9"/>
+            <circle cx="300" cy="58"  r="3" fill="#22c55e" opacity=".9"/>
+            <circle cx="400" cy="40"  r="3" fill="#22c55e" opacity=".9"/>
+            <circle cx="615" cy="7"   r="3" fill="#22c55e" opacity=".9"/>
+            <circle cx="205" cy="80"  r="3" fill="#ef4444" opacity=".9"/>
+            <circle cx="510" cy="18"  r="3" fill="#ef4444" opacity=".9"/>
+            <rect x="154" y="68" width="54" height="14" rx="2" fill="rgba(239,68,68,.7)"/>
+            <text x="181" y="78" text-anchor="middle" font-size="8" fill="white" font-weight="bold">-12.4% DD</text>
+          </svg>
+          <div class="chart-leg">
+            <span style="color:var(--accent)">─ Equity</span>
+            <span>● Buy</span>
+            <span>● Sell</span>
+            <span style="color:var(--red)">■ Drawdown</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ④ Heatmap (collapsible, default closed) -->
+    <div class="card">
+      <div class="card-head" onclick="toggle(this)">
+        <div class="card-head-left">
+          <div class="card-label">Monthly Heatmap</div>
+          <div class="card-tag">when does strategy work best?</div>
+        </div>
+        <div class="card-arrow">▶</div>
+      </div>
+      <div class="card-body">
+        <div class="hm-months">
+          <div></div>
+          <div class="hm-ml">Jan</div><div class="hm-ml">Feb</div><div class="hm-ml">Mar</div>
+          <div class="hm-ml">Apr</div><div class="hm-ml">May</div><div class="hm-ml">Jun</div>
+          <div class="hm-ml">Jul</div><div class="hm-ml">Aug</div><div class="hm-ml">Sep</div>
+          <div class="hm-ml">Oct</div><div class="hm-ml">Nov</div><div class="hm-ml">Dec</div>
+        </div>
+        <div class="hm-row">
+          <div class="hm-yl">2022</div>
+          <div class="hm hm-p2">3.2</div><div class="hm hm-n1">-1.4</div><div class="hm hm-p1">1.1</div>
+          <div class="hm hm-n3">-8</div><div class="hm hm-n2">-5</div><div class="hm hm-n1">-2</div>
+          <div class="hm hm-p3">6.4</div><div class="hm hm-p2">4.1</div><div class="hm hm-p1">1.8</div>
+          <div class="hm hm-p2">3.5</div><div class="hm hm-n1">-1.9</div><div class="hm hm-p1">2.2</div>
+        </div>
+        <div class="hm-row">
+          <div class="hm-yl">2023</div>
+          <div class="hm hm-p4">9.8</div><div class="hm hm-p3">5.6</div><div class="hm hm-p2">3.1</div>
+          <div class="hm hm-p3">6.2</div><div class="hm hm-p1">1.5</div><div class="hm hm-p2">4.0</div>
+          <div class="hm hm-p4">10</div><div class="hm hm-p3">7.1</div><div class="hm hm-n1">-2.4</div>
+          <div class="hm hm-p3">5.8</div><div class="hm hm-p2">4.3</div><div class="hm hm-p4">11</div>
+        </div>
+        <div class="hm-row">
+          <div class="hm-yl">2024</div>
+          <div class="hm hm-p3">5.2</div><div class="hm hm-p4">8.9</div><div class="hm hm-n3">-12</div>
+          <div class="hm hm-p2">3.8</div><div class="hm hm-p1">2.1</div><div class="hm hm-p3">6.7</div>
+          <div class="hm hm-p2">4.5</div><div class="hm hm-p1">1.9</div><div class="hm hm-p3">5.4</div>
+          <div class="hm hm-p4">9.1</div><div class="hm hm-p3">6.0</div><div class="hm hm-p2">3.3</div>
+        </div>
+        <div class="hm-legend">
+          <div class="hml hm-n3"></div> High Loss
+          <div class="hml hm-n1"></div> Small Loss
+          <div class="hml hm-0"></div> Flat
+          <div class="hml hm-p1"></div> Small Win
+          <div class="hml hm-p3"></div> Strong Win
+          <div class="hml hm-p4"></div> Best
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑤ Trade History (collapsible, default closed) -->
+    <div class="card">
+      <div class="card-head" onclick="toggle(this)">
+        <div class="card-head-left">
+          <div class="card-label">Trade History</div>
+          <div class="card-tag">220 trades</div>
+        </div>
+        <div class="card-arrow">▶</div>
+      </div>
+      <div class="card-body">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Side</th><th>Entry</th><th>Exit</th>
+              <th>PnL</th><th>Reason</th><th>Dur</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Mar 22</td><td><span class="buy">LONG</span></td><td>$68,240</td><td>$71,450</td><td class="pp">+4.7%</td><td>TP hit</td><td>14h</td></tr>
+            <tr><td>Mar 18</td><td><span class="buy">LONG</span></td><td>$65,100</td><td>$67,300</td><td class="pp">+3.4%</td><td>RSI exit</td><td>8h</td></tr>
+            <tr><td>Mar 15</td><td><span class="buy">LONG</span></td><td>$69,800</td><td>$67,700</td><td class="pn">-3.0%</td><td>SL hit</td><td>2h</td></tr>
+            <tr><td>Mar 10</td><td><span class="buy">LONG</span></td><td>$63,500</td><td>$69,200</td><td class="pp">+9.0%</td><td>TP hit</td><td>3d</td></tr>
+            <tr><td>Mar 6</td><td><span class="buy">LONG</span></td><td>$61,200</td><td>$63,400</td><td class="pp">+3.6%</td><td>RSI exit</td><td>18h</td></tr>
+          </tbody>
+        </table>
+        <div class="load-more">Load more trades ↓</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function toggle(head) {
+  const body = head.nextElementSibling;
+  const arrow = head.querySelector('.card-arrow');
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  head.classList.toggle('open', !isOpen);
+  arrow.classList.toggle('open', !isOpen);
+}
+</script>
+</body>
+</html>
