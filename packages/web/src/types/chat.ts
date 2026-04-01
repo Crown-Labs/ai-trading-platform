@@ -3,6 +3,7 @@ import { StrategyDSL, BacktestResult, BacktestRun, OHLCVCandle } from '@ai-tradi
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  strategy?: StrategyDSL; // attached strategy suggestion (assistant messages only)
 }
 
 export interface ChatSession {
@@ -11,7 +12,6 @@ export interface ChatSession {
   createdAt: string;
   messages: ChatMessage[];
   strategy?: StrategyDSL;           // active strategy (used for backtest)
-  suggestedStrategy?: StrategyDSL;  // AI-suggested, pending user approval
   backtestResult?: BacktestResult;
   candles?: OHLCVCandle[];
   backtestRuns?: BacktestRun[];
