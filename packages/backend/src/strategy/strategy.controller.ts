@@ -25,6 +25,6 @@ export class StrategyController {
     @Body() dto: ParseStrategyDto,
   ): Promise<ParseStrategyResponseDto> {
     const strategy = await this.strategyService.parseFromText(dto.text);
-    return { strategy };
+    return { strategy: strategy as any };
   }
 }
