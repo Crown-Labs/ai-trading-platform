@@ -5,6 +5,7 @@ import {
   BacktestDataRange,
   Trade,
   OHLCVCandle,
+  DEFAULT_INITIAL_CAPITAL,
 } from '@ai-trading/shared';
 import { MarketDataService } from '../market-data/market-data.service';
 import { IndicatorEngine } from './engines/indicator.engine';
@@ -16,7 +17,7 @@ import { MetricsEngine } from './engines/metrics.engine';
 const DEFAULT_COMMISSION = 0.001;
 const DEFAULT_SLIPPAGE = 0.0005;
 const DEFAULT_LEVERAGE = 1;
-const INITIAL_CAPITAL = 10000;
+// DEFAULT_INITIAL_CAPITAL imported from @ai-trading/shared
 
 @Injectable()
 export class BacktestService {
@@ -77,6 +78,8 @@ export class BacktestService {
     const useNextBar =
       (strategy.execution?.execution_model ?? 'next_bar') === 'next_bar';
 
+    const initialCapital = inputStrategy.initialCapital ?? DEFAULT_INITIAL_CAPITAL;
+
     const trades = this.simulateTrades(
       candles,
       indicatorValues,
@@ -85,6 +88,7 @@ export class BacktestService {
       strategy.risk,
       execParams,
       useNextBar,
+      initialCapital,
     );
 
     this.logger.log(`🎯 Backtest complete: ${trades.length} trades executed`);
@@ -96,7 +100,7 @@ export class BacktestService {
       this.logger.warn(`   3. Indicators have too many NaN values`);
     }
 
-    const metrics = this.metricsEngine.calculate(trades);
+    const metrics = this.metricsEngine.calculate(trades, initialCapital);
 
     // Build data coverage info
     const dataRange: BacktestDataRange | undefined =
@@ -144,10 +148,11 @@ export class BacktestService {
     risk: { stop_loss: number; take_profit: number; position_size?: number },
     execParams: ExecutionParams,
     useNextBar: boolean,
+    initialCapital: number = DEFAULT_INITIAL_CAPITAL,
   ): Trade[] {
     const trades: Trade[] = [];
     let tradeId = 0;
-    let capital = INITIAL_CAPITAL;
+    let capital = initialCapital;
 
     let longPos: { price: number; time: string } | null = null;
     let shortPos: { price: number; time: string } | null = null;

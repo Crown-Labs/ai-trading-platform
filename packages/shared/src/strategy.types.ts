@@ -1,3 +1,5 @@
+export const DEFAULT_INITIAL_CAPITAL = 1_000_000;
+
 export interface ExecutionParams {
   commission: number;   // % as decimal e.g. 0.001 for 0.1%
   slippage: number;     // % as decimal e.g. 0.0005 for 0.05%
@@ -58,6 +60,7 @@ export interface StrategyDSL {
   execution?: ExecutionParams;
   startDate?: string;
   endDate?: string;
+  initialCapital?: number; // default: 10000
 }
 
 export interface Trade {

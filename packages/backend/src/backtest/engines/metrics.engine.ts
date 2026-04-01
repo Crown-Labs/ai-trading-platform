@@ -1,13 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { Trade, BacktestMetrics } from '@ai-trading/shared';
-
-const INITIAL_CAPITAL = 10000;
+import { Trade, BacktestMetrics, DEFAULT_INITIAL_CAPITAL } from '@ai-trading/shared';
 
 @Injectable()
 export class MetricsEngine {
   calculate(
     trades: Trade[],
-    initialCapital = INITIAL_CAPITAL,
+    initialCapital = DEFAULT_INITIAL_CAPITAL,
   ): BacktestMetrics {
     if (trades.length === 0) {
       return {

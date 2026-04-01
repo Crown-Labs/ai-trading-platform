@@ -1,4 +1,4 @@
-import { StrategyDSL } from '@ai-trading/shared';
+import { StrategyDSL, DEFAULT_INITIAL_CAPITAL } from '@ai-trading/shared';
 
 /**
  * Converts DSL condition string to Pine Script expression
@@ -54,12 +54,41 @@ export function generatePineScript(strategy: StrategyDSL): string {
   const exec = strategy.execution;
   const leverage = exec?.leverage ?? 1;
   const commission = exec?.commission != null ? exec.commission * 100 : 0.1;
+  const initialCapital = (strategy as any).initialCapital ?? DEFAULT_INITIAL_CAPITAL;
+
+  // Auto-detect indicators used in conditions but not declared in DSL
+  const allConditions = [
+    ...strategy.entry.condition,
+    ...(strategy.entry.short_condition ?? []),
+    ...strategy.exit.condition,
+    ...(strategy.exit.short_condition ?? []),
+  ].join(' ');
+
+  const autoInd = { ...ind };
+  if (!autoInd.bbands && /\bbb_(upper|middle|lower)\b/.test(allConditions)) {
+    autoInd.bbands = { period: 20, stddev: 2 };
+  }
+  if (!autoInd.macd && /\bmacd\b/.test(allConditions)) {
+    autoInd.macd = { fast: 12, slow: 26, signal: 9 };
+  }
+  if (!autoInd.stoch && /\bstoch_[kd]\b/.test(allConditions)) {
+    autoInd.stoch = { kPeriod: 14, dPeriod: 3 };
+  }
+  if (!autoInd.kc && /\bkc_(upper|middle|lower)\b/.test(allConditions)) {
+    autoInd.kc = { period: 20, multiple: 2 };
+  }
+  if (!autoInd.aroon && /\baroon_(up|down)\b/.test(allConditions)) {
+    autoInd.aroon = 25;
+  }
+
+  // Use auto-injected indicators from here on
+  Object.assign(ind, autoInd);
 
   const lines: string[] = [];
 
   // Header
   lines.push(`//@version=5`);
-  lines.push(`strategy("${strategy.name}", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=${risk.position_size}, commission_type=strategy.commission.percent, commission_value=${commission.toFixed(3)})`);
+  lines.push(`strategy("${strategy.name}", overlay=true, initial_capital=${initialCapital}, default_qty_type=strategy.percent_of_equity, default_qty_value=${risk.position_size}, commission_type=strategy.commission.percent, commission_value=${commission.toFixed(3)})`);
   lines.push(``);
 
   // Market info comment
@@ -199,10 +228,11 @@ export function generatePineScript(strategy: StrategyDSL): string {
 
   // Strategy Logic
   lines.push(`// ─── Strategy Logic ───────────────────────────────────────`);
-  lines.push(`if longCondition`);
+  lines.push(`// Only enter when flat (matches platform: no auto position reversal)`);
+  lines.push(`if longCondition and strategy.position_size == 0`);
   lines.push(`    strategy.entry("Long", strategy.long)`);
   lines.push(``);
-  lines.push(`if shortCondition`);
+  lines.push(`if shortCondition and strategy.position_size == 0`);
   lines.push(`    strategy.entry("Short", strategy.short)`);
   lines.push(``);
   lines.push(`// Stop Loss & Take Profit`);
