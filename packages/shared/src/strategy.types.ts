@@ -1,4 +1,5 @@
 export const DEFAULT_INITIAL_CAPITAL = 1_000_000;
+export const DEFAULT_POSITION_SIZE = 100; // % of equity per trade (matches TradingView default)
 
 export interface ExecutionParams {
   commission: number;   // % as decimal e.g. 0.001 for 0.1%
@@ -55,7 +56,7 @@ export interface StrategyDSL {
   risk: {
     stop_loss: number;
     take_profit: number;
-    position_size: number;
+    position_size?: number; // default: DEFAULT_POSITION_SIZE (100)
   };
   execution?: ExecutionParams;
   startDate?: string;

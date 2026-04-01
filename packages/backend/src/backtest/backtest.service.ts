@@ -6,6 +6,7 @@ import {
   Trade,
   OHLCVCandle,
   DEFAULT_INITIAL_CAPITAL,
+  DEFAULT_POSITION_SIZE,
 } from '@ai-trading/shared';
 import { MarketDataService } from '../market-data/market-data.service';
 import { IndicatorEngine } from './engines/indicator.engine';
@@ -72,7 +73,7 @@ export class BacktestService {
       commission: strategy.execution?.commission ?? DEFAULT_COMMISSION,
       slippage: strategy.execution?.slippage ?? DEFAULT_SLIPPAGE,
       leverage: strategy.execution?.leverage ?? DEFAULT_LEVERAGE,
-      positionSize: strategy.risk.position_size,
+      positionSize: strategy.risk.position_size ?? DEFAULT_POSITION_SIZE,
     };
 
     const useNextBar =

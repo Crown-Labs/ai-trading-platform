@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { StrategyDSL, BacktestRun, DEFAULT_INITIAL_CAPITAL } from '@ai-trading/shared';
+import { StrategyDSL, BacktestRun, DEFAULT_INITIAL_CAPITAL, DEFAULT_POSITION_SIZE } from '@ai-trading/shared';
 import YAML from 'yaml';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -81,8 +81,7 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
       !parsed.entry?.condition?.length ||
       !parsed.exit?.condition?.length ||
       parsed.risk?.stop_loss == null ||
-      parsed.risk?.take_profit == null ||
-      parsed.risk?.position_size == null
+      parsed.risk?.take_profit == null
     ) {
       return null;
     }
@@ -109,7 +108,7 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
       risk: {
         stop_loss: parsed.risk.stop_loss,
         take_profit: parsed.risk.take_profit,
-        position_size: parsed.risk.position_size,
+        position_size: parsed.risk.position_size ?? DEFAULT_POSITION_SIZE,
       },
       ...(parsed.execution && { execution: parsed.execution }),
     };
