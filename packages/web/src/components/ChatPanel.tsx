@@ -4,6 +4,7 @@ import YAML from 'yaml';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChatSession, ChatMessage } from '../types/chat';
+import SuggestedStrategyBanner from './SuggestedStrategyBanner';
 import { saveRunData } from '../lib/trade-store';
 import { useQueryClient } from '@tanstack/react-query';
 import { API_BASE } from '../lib/api';
@@ -276,7 +277,8 @@ Please analyze these results and suggest specific improvements to optimize the s
           }
 
           setStreamingText('');
-          // Parse new strategy suggestion from AI analysis response
+          // Parse strategy suggestion from analysis — store as suggestedStrategy only
+          // Never override session.strategy from analysis (it must stay as the run strategy)
           const suggestedStrategy = parseStrategyFromResponse(fullText);
           onUpdate({
             messages: [
@@ -285,8 +287,7 @@ Please analyze these results and suggest specific improvements to optimize the s
             ],
             backtestResult,
             candles,
-            // Update strategy if AI suggested a new one in the analysis
-            ...(suggestedStrategy && { strategy: suggestedStrategy }),
+            ...(suggestedStrategy && { suggestedStrategy }),
           });
         }
       }
@@ -387,10 +388,14 @@ Please analyze these results and suggest specific improvements to optimize the s
       ];
       setStreamingText('');
 
-      const strategy = parseStrategyFromResponse(fullText);
+      // First message with strategy → set as active strategy
+      // Subsequent suggestions → store as suggestedStrategy for user to approve
+      const parsedStrategy = parseStrategyFromResponse(fullText);
+      const hasActiveStrategy = !!session.strategy;
       onUpdate({
         messages: finalMessages,
-        ...(strategy && { strategy }),
+        ...(parsedStrategy && !hasActiveStrategy && { strategy: parsedStrategy }),
+        ...(parsedStrategy && hasActiveStrategy && { suggestedStrategy: parsedStrategy }),
       });
     } catch {
       onUpdate({
@@ -563,6 +568,19 @@ Please analyze these results and suggest specific improvements to optimize the s
           </button>
         </div>
       </div>
+
+      {/* Suggested strategy banner */}
+      {session.suggestedStrategy && (
+        <SuggestedStrategyBanner
+          strategy={session.suggestedStrategy}
+          onApply={() => {
+            onUpdate({ strategy: session.suggestedStrategy, suggestedStrategy: undefined });
+          }}
+          onDismiss={() => {
+            onUpdate({ suggestedStrategy: undefined });
+          }}
+        />
+      )}
 
       {session.strategy && (
         <div className="border-t border-dark-700 pt-3 mt-1 space-y-2">

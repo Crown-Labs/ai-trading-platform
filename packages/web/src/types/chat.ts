@@ -10,7 +10,8 @@ export interface ChatSession {
   title: string;
   createdAt: string;
   messages: ChatMessage[];
-  strategy?: StrategyDSL;
+  strategy?: StrategyDSL;           // active strategy (used for backtest)
+  suggestedStrategy?: StrategyDSL;  // AI-suggested, pending user approval
   backtestResult?: BacktestResult;
   candles?: OHLCVCandle[];
   backtestRuns?: BacktestRun[];
