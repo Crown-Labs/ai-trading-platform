@@ -24,23 +24,29 @@ function formatPnl(n: number) {
 
 export default function TradeTable({ trades }: TradeTableProps) {
   const [page, setPage] = useState(1);
-  const totalPages = Math.ceil(trades.length / PAGE_SIZE);
+  const [sortDesc, setSortDesc] = useState(true); // newest first by default
+
+  const sortedTrades = [...trades].sort((a, b) => {
+    const diff = new Date(a.entryTime).getTime() - new Date(b.entryTime).getTime();
+    return sortDesc ? -diff : diff;
+  });
+  const totalPages = Math.ceil(sortedTrades.length / PAGE_SIZE);
   const start = (page - 1) * PAGE_SIZE;
-  const paginated = trades.slice(start, start + PAGE_SIZE);
+  const paginated = sortedTrades.slice(start, start + PAGE_SIZE);
 
   const initialCapital = 1_000_000;
 
-  // Cumulative P&L per trade (absolute index)
-  const cumPnl: number[] = [];
+  // Cumulative P&L keyed by trade id (based on original order)
+  const cumPnlMap: Record<number, number> = {};
   let running = 0;
   for (const t of trades) {
     running += t.pnl;
-    cumPnl.push(running);
+    cumPnlMap[t.id] = running;
   }
 
-  const totalPnl = trades.reduce((sum, t) => sum + t.pnl, 0);
-  const totalFees = trades.reduce((sum, t) => sum + t.fees, 0);
-  const winCount = trades.filter((t) => t.isWin).length;
+  const totalPnl = sortedTrades.reduce((sum, t) => sum + t.pnl, 0);
+  const totalFees = sortedTrades.reduce((sum, t) => sum + t.fees, 0);
+  const winCount = sortedTrades.filter((t) => t.isWin).length;
 
   const getPageNumbers = () => {
     const pages: (number | '...')[] = [];
@@ -75,7 +81,15 @@ export default function TradeTable({ trades }: TradeTableProps) {
             <tr className="text-gray-500 border-b border-dark-700">
               <th className="text-left py-2 px-2">#</th>
               <th className="text-left py-2 px-2">Type</th>
-              <th className="text-left py-2 px-2">Date / Time</th>
+              <th className="text-left py-2 px-2">
+                <button
+                  onClick={() => { setSortDesc(d => !d); setPage(1); }}
+                  className="flex items-center gap-1 hover:text-white transition-colors"
+                >
+                  Date / Time
+                  <span className="text-gray-600">{sortDesc ? '↓' : '↑'}</span>
+                </button>
+              </th>
               <th className="text-left py-2 px-2">Signal</th>
               <th className="text-right py-2 px-2">Price</th>
               <th className="text-right py-2 px-2">Net P&amp;L</th>
@@ -83,9 +97,8 @@ export default function TradeTable({ trades }: TradeTableProps) {
             </tr>
           </thead>
           <tbody>
-            {paginated.map((trade, idx) => {
-              const absIdx = start + idx;
-              const cum = cumPnl[absIdx];
+            {paginated.map((trade) => {
+              const cum = cumPnlMap[trade.id] ?? 0;
               const cumPct = (cum / initialCapital) * 100;
               const pnlPct = trade.pnl / initialCapital * 100;
               const isLong = trade.side === 'long';
