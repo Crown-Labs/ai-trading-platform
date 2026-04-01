@@ -19,6 +19,8 @@ interface BacktestChartProps {
   trades: Trade[];
   symbol: string;
   defaultTimeframe?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 const TIMEFRAMES = ['1h', '4h', '1d'];
@@ -28,6 +30,8 @@ export default function BacktestChart({
   trades,
   symbol,
   defaultTimeframe = '1h',
+  startDate,
+  endDate,
 }: BacktestChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -45,14 +49,15 @@ export default function BacktestChart({
       return;
     }
     setLoading(true);
-    fetch(
-      `${API_BASE}/api/market-data/candles?symbol=${symbol}&interval=${activeTimeframe}&limit=500`,
-    )
+    const url = startDate && endDate
+      ? `${API_BASE}/api/market-data/candles?symbol=${symbol}&interval=${activeTimeframe}&startTime=${new Date(startDate).getTime()}&endTime=${new Date(endDate).getTime()}`
+      : `${API_BASE}/api/market-data/candles?symbol=${symbol}&interval=${activeTimeframe}&limit=500`;
+    fetch(url)
       .then((r) => r.json())
       .then((data) => setCandles(data))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [activeTimeframe, symbol, defaultTimeframe, initialCandles]);
+  }, [activeTimeframe, symbol, defaultTimeframe, initialCandles, startDate, endDate]);
 
   // Reset to default timeframe and update candles when new backtest data arrives
   useEffect(() => {
