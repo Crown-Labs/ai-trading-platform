@@ -16,7 +16,7 @@ import { MetricsEngine } from './engines/metrics.engine';
 const DEFAULT_COMMISSION = 0.001;
 const DEFAULT_SLIPPAGE = 0.0005;
 const DEFAULT_LEVERAGE = 1;
-const INITIAL_CAPITAL = 10000;
+const DEFAULT_INITIAL_CAPITAL = 10000;
 
 @Injectable()
 export class BacktestService {
@@ -77,6 +77,8 @@ export class BacktestService {
     const useNextBar =
       (strategy.execution?.execution_model ?? 'next_bar') === 'next_bar';
 
+    const initialCapital = inputStrategy.initialCapital ?? DEFAULT_INITIAL_CAPITAL;
+
     const trades = this.simulateTrades(
       candles,
       indicatorValues,
@@ -85,6 +87,7 @@ export class BacktestService {
       strategy.risk,
       execParams,
       useNextBar,
+      initialCapital,
     );
 
     this.logger.log(`🎯 Backtest complete: ${trades.length} trades executed`);
@@ -144,10 +147,11 @@ export class BacktestService {
     risk: { stop_loss: number; take_profit: number; position_size: number },
     execParams: ExecutionParams,
     useNextBar: boolean,
+    initialCapital: number = DEFAULT_INITIAL_CAPITAL,
   ): Trade[] {
     const trades: Trade[] = [];
     let tradeId = 0;
-    let capital = INITIAL_CAPITAL;
+    let capital = initialCapital;
 
     let longPos: { price: number; time: string } | null = null;
     let shortPos: { price: number; time: string } | null = null;

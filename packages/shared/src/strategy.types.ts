@@ -58,6 +58,7 @@ export interface StrategyDSL {
   execution?: ExecutionParams;
   startDate?: string;
   endDate?: string;
+  initialCapital?: number; // default: 10000
 }
 
 export interface Trade {

@@ -127,6 +127,7 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
     startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     endDate: new Date().toISOString().slice(0, 10),
   });
+  const [initialCapital, setInitialCapital] = useState(10000);
 
   const PRESETS = [
     { label: '3M', months: 3 },
@@ -174,6 +175,7 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
         ...strategy,
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
+        initialCapital,
       };
 
       const res = await fetch(API_BASE + '/api/backtest/run', {
@@ -599,6 +601,18 @@ Please analyze these results and suggest specific improvements to optimize the s
               type="date"
               value={dateRange.endDate}
               onChange={(e) => setDateRange((d) => ({ ...d, endDate: e.target.value }))}
+              className="flex-1 bg-dark-700 border border-dark-600 rounded px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-primary-500"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-500 whitespace-nowrap">Capital ($)</label>
+            <input
+              type="number"
+              min={100}
+              step={1000}
+              value={initialCapital}
+              onChange={(e) => setInitialCapital(Number(e.target.value))}
               className="flex-1 bg-dark-700 border border-dark-600 rounded px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-primary-500"
             />
           </div>
