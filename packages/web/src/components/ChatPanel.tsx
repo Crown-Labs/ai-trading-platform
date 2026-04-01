@@ -510,17 +510,29 @@ Please analyze these results and suggest specific improvements to optimize the s
                           {msg.strategy.market.symbol} · {msg.strategy.market.timeframe} · SL {msg.strategy.risk.stop_loss}% · TP {msg.strategy.risk.take_profit}%
                         </p>
                       </div>
-                      <button
-                        onClick={() => onUpdate({ strategy: msg.strategy })}
-                        className={`flex-shrink-0 px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                          session.strategy?.name === msg.strategy.name
-                            ? 'bg-primary-600/30 text-primary-300 cursor-default'
-                            : 'bg-primary-600 hover:bg-primary-500 text-white'
-                        }`}
-                        disabled={session.strategy?.name === msg.strategy.name}
-                      >
-                        {session.strategy?.name === msg.strategy.name ? 'Active' : 'Apply'}
-                      </button>
+                      {(() => {
+                          const activeRun = session.backtestRuns?.find(r => r.id === session.activeRunId);
+                          const isActive = !activeRun
+                            ? session.strategy?.name === msg.strategy.name
+                            : activeRun.strategy.name === msg.strategy.name;
+                          return (
+                            <button
+                              onClick={() => onUpdate({
+                                strategy: msg.strategy,
+                                activeRunId: undefined, // clear run so DSL card shows new strategy
+                                backtestResult: undefined,
+                              })}
+                              className={`flex-shrink-0 px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                                isActive
+                                  ? 'bg-primary-600/30 text-primary-300 cursor-default'
+                                  : 'bg-primary-600 hover:bg-primary-500 text-white'
+                              }`}
+                              disabled={isActive}
+                            >
+                              {isActive ? 'Active' : 'Apply'}
+                            </button>
+                          );
+                        })()}
                     </div>
                   </div>
                 )}
