@@ -320,19 +320,8 @@ Please analyze these results and suggest specific improvements to optimize the s
     setLoading(true);
     setStreamingText('');
 
-    // Fire strategy parse in parallel (non-blocking)
-    void fetch(API_BASE + '/api/strategy/parse', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: userMessage }),
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.strategy) {
-          onUpdate({ strategy: data.strategy });
-        }
-      })
-      .catch(() => { /* Ignore — chat-based fallback still runs */ });
+    // Strategy is parsed from AI chat response via parseStrategyFromResponse()
+    // /api/strategy/parse endpoint is no longer called from the frontend
 
     try {
       const res = await fetch(API_BASE + '/api/ai/chat', {
