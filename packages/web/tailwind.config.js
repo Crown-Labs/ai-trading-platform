@@ -6,6 +6,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        mono: ['"Courier New"', 'Courier', 'monospace'],
+      },
       colors: {
         primary: {
           50: '#f0f9ff',
@@ -26,10 +29,21 @@ export default {
           300: '#cbd5e1',
           400: '#94a3b8',
           500: '#64748b',
-          600: '#475569',
-          700: '#334155',
-          800: '#1e293b',
-          900: '#0f172a',
+          600: '#3a3f47',
+          700: '#2b2f36',
+          800: '#1e2026',
+          900: '#0b0e11',
+        },
+        terminal: {
+          bg: '#0b0e11',
+          surface: '#1e2026',
+          surface2: '#2b2f36',
+          border: '#2b2f36',
+          accent: '#f0b90b',
+          green: '#03a66d',
+          red: '#cf304a',
+          text: '#eaecef',
+          muted: '#848e9c',
         },
       },
     },

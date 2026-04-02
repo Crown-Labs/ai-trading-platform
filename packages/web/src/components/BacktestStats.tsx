@@ -7,43 +7,84 @@ interface BacktestStatsProps {
 export default function BacktestStats({ metrics }: BacktestStatsProps) {
   const stats = [
     {
-      label: 'Total Trades',
-      value: metrics.totalTrades.toString(),
-      color: 'text-white',
+      label: 'Total Return',
+      value: `${metrics.totalReturn > 0 ? '+' : ''}${metrics.totalReturn.toFixed(1)}%`,
+      colorStyle: metrics.totalReturn >= 0 ? 'var(--green)' : 'var(--red)',
     },
     {
       label: 'Win Rate',
-      value: `${metrics.winRate}%`,
-      color: metrics.winRate >= 50 ? 'text-green-500' : 'text-red-500',
+      value: `${metrics.winRate.toFixed(1)}%`,
+      colorStyle: metrics.winRate >= 50 ? 'var(--green)' : 'var(--red)',
     },
     {
-      label: 'Total Return',
-      value: `${metrics.totalReturn > 0 ? '+' : ''}${metrics.totalReturn}%`,
-      color: metrics.totalReturn >= 0 ? 'text-green-500' : 'text-red-500',
+      label: 'Total Trades',
+      value: metrics.totalTrades.toString(),
+      colorStyle: 'var(--text)',
     },
     {
       label: 'Max Drawdown',
-      value: `-${metrics.maxDrawdown}%`,
-      color: 'text-red-500',
+      value: `-${metrics.maxDrawdown.toFixed(1)}%`,
+      colorStyle: 'var(--red)',
     },
     {
       label: 'Sharpe Ratio',
       value: metrics.sharpeRatio.toFixed(2),
-      color: metrics.sharpeRatio >= 1 ? 'text-green-500' : metrics.sharpeRatio >= 0 ? 'text-yellow-500' : 'text-red-500',
+      colorStyle:
+        metrics.sharpeRatio >= 1
+          ? 'var(--green)'
+          : metrics.sharpeRatio >= 0
+          ? 'var(--accent)'
+          : 'var(--red)',
     },
     {
       label: 'Profit Factor',
       value: metrics.profitFactor.toFixed(2),
-      color: metrics.profitFactor >= 1.5 ? 'text-green-500' : metrics.profitFactor >= 1 ? 'text-yellow-500' : 'text-red-500',
+      colorStyle:
+        metrics.profitFactor >= 1.5
+          ? 'var(--green)'
+          : metrics.profitFactor >= 1
+          ? 'var(--accent)'
+          : 'var(--red)',
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+    <div
+      className="grid border-b border-terminal-border flex-shrink-0"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '1px',
+        background: 'var(--border)',
+      }}
+    >
       {stats.map((stat) => (
-        <div key={stat.label} className="card text-center">
-          <p className="text-gray-400 text-xs mb-1">{stat.label}</p>
-          <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
+        <div
+          key={stat.label}
+          className="bg-terminal-surface"
+          style={{ padding: '10px 12px' }}
+        >
+          <div
+            className="text-terminal-muted"
+            style={{
+              fontSize: '9px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.07em',
+              marginBottom: '4px',
+            }}
+          >
+            {stat.label}
+          </div>
+          <div
+            style={{
+              fontSize: '16px',
+              fontWeight: 700,
+              lineHeight: 1,
+              color: stat.colorStyle,
+            }}
+          >
+            {stat.value}
+          </div>
         </div>
       ))}
     </div>

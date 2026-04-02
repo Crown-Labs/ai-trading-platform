@@ -3,21 +3,122 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg: #0b0e11;
+    --surface: #1e2026;
+    --surface2: #2b2f36;
+    --border: #2b2f36;
+    --accent: #f0b90b;
+    --green: #03a66d;
+    --red: #cf304a;
+    --text: #eaecef;
+    --muted: #848e9c;
+    --font: "Courier New", Courier, monospace;
+  }
+
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
-    @apply bg-dark-900 text-gray-100 antialiased;
+    @apply bg-terminal-bg text-terminal-text;
+    font-family: var(--font);
+    font-size: 13px;
+    -webkit-font-smoothing: auto;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted);
   }
 }
 
 @layer components {
   .card {
-    @apply bg-dark-800 rounded-lg border border-dark-700 p-6 shadow-lg;
+    @apply bg-terminal-surface border border-terminal-border;
   }
 
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium px-6 py-2.5 rounded-lg transition-colors duration-200;
+    @apply bg-terminal-accent text-terminal-bg font-bold px-4 py-2 transition-opacity duration-150;
+    font-family: var(--font);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .btn-primary:hover {
+    opacity: 0.85;
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .btn-secondary {
-    @apply bg-dark-700 hover:bg-dark-600 text-gray-200 font-medium px-6 py-2.5 rounded-lg transition-colors duration-200;
+    @apply bg-terminal-surface2 text-terminal-muted font-medium px-4 py-2 transition-colors duration-150;
+    font-family: var(--font);
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .btn-secondary:hover {
+    @apply text-terminal-text;
+    border-color: var(--accent);
+  }
+
+  /* Terminal-style input */
+  .term-input {
+    @apply bg-terminal-bg border border-terminal-border text-terminal-text;
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 5px 8px;
+    border-radius: 3px;
+    outline: none;
+  }
+  .term-input:focus {
+    border-color: var(--accent);
+  }
+
+  /* Card header (used in chart/heatmap cards) */
+  .card-header {
+    @apply flex items-center justify-between border-b border-terminal-border;
+    padding: 9px 12px;
+    flex-shrink: 0;
+  }
+  .card-title {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* Status dot animation */
+  .status-dot {
+    @apply inline-block rounded-full bg-terminal-green;
+    width: 6px;
+    height: 6px;
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
   }
 }

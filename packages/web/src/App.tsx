@@ -45,25 +45,23 @@ function App() {
   const candles = runData?.candles ?? activeSession?.candles ?? [];
 
   return (
-    <div className="h-screen bg-dark-900 flex flex-col overflow-hidden">
-      <Header />
+    <div className="h-screen flex flex-col overflow-hidden" style={{ background: 'var(--bg)' }}>
+      <Header activeSession={activeSession} activeRun={activeRun} />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-64 flex-shrink-0 bg-dark-800 border-r border-dark-700 p-4 overflow-y-auto">
-          <ChatSidebar
-            sessions={sessions}
-            activeSessionId={activeSession?.id ?? null}
-            onSelect={selectSession}
-            onCreate={createSession}
-            onDelete={deleteSession}
-          />
-        </div>
+        {/* Collapsible sidebar — manages its own width */}
+        <ChatSidebar
+          sessions={sessions}
+          activeSessionId={activeSession?.id ?? null}
+          onSelect={selectSession}
+          onCreate={createSession}
+          onDelete={deleteSession}
+        />
 
-        {/* Left col: Chat */}
+        {/* Chat panel (360px) */}
         <div
-          className="flex-shrink-0 border-r border-dark-700 p-4 flex flex-col overflow-hidden"
-          style={{ width: '520px' }}
+          className="flex-shrink-0 border-r border-terminal-border flex flex-col overflow-hidden bg-terminal-surface"
+          style={{ width: '360px' }}
         >
           {activeSession ? (
             <ChatPanel
@@ -73,59 +71,87 @@ function App() {
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center px-4">
-              <p className="text-gray-500 text-sm mb-1">
+              <p className="text-terminal-muted" style={{ fontSize: '13px' }}>
                 Select or create a chat
               </p>
-              <p className="text-gray-600 text-xs">
+              <p className="text-terminal-muted" style={{ fontSize: '11px', marginTop: '4px' }}>
                 Use the sidebar on the left
               </p>
             </div>
           )}
         </div>
 
-        {/* Right col: Results */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Right panel */}
+        <div className="flex-1 flex flex-col overflow-hidden">
           {activeSession && (
             <>
-              {strategy && <StrategyDSLViewer strategy={strategy} />}
-
+              {/* Version nav — full width, flex-shrink-0 */}
               {(activeSession.backtestRuns?.length ?? 0) > 0 && (
                 <BacktestVersionNav
                   runs={activeSession.backtestRuns!}
                   activeRunId={activeSession.activeRunId}
-                  onSelect={(runId) =>
-                    setActiveRun(activeSession.id, runId)
-                  }
+                  onSelect={(runId) => setActiveRun(activeSession.id, runId)}
                 />
               )}
 
-              {backtestResult && (
+              {backtestResult ? (
                 <>
-                  <BacktestStats metrics={backtestResult.metrics} />
-                  <BacktestHeatmap trades={trades} />
-                  {candles.length > 0 && (
-                    <BacktestChart
-                      candles={candles}
-                      trades={trades}
-                      symbol={strategy?.market?.symbol ?? 'BTCUSDT'}
-                      defaultTimeframe={strategy?.market?.timeframe ?? '1h'}
-                      startDate={activeRun?.startDate ?? strategy?.startDate}
-                      endDate={activeRun?.endDate ?? strategy?.endDate}
-                    />
-                  )}
-                  <TradeTable trades={trades} />
-                </>
-              )}
+                  {/* Top row: 52% height */}
+                  <div
+                    className="flex border-b border-terminal-border overflow-hidden"
+                    style={{ flex: '0 0 52%', minHeight: 0 }}
+                  >
+                    {/* Chart card */}
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                      {candles.length > 0 && (
+                        <BacktestChart
+                          candles={candles}
+                          trades={trades}
+                          symbol={strategy?.market?.symbol ?? 'BTCUSDT'}
+                          defaultTimeframe={strategy?.market?.timeframe ?? '1h'}
+                          startDate={activeRun?.startDate ?? strategy?.startDate}
+                          endDate={activeRun?.endDate ?? strategy?.endDate}
+                        />
+                      )}
+                    </div>
 
-              {!strategy && !backtestResult && (
-                <div className="card text-center py-20">
-                  <p className="text-gray-500 text-lg mb-2">
-                    No backtest results yet
-                  </p>
-                  <p className="text-gray-600 text-sm">
-                    Describe a strategy in the chat panel, then click "Run
-                    Backtest"
-                  </p>
+                    {/* Right stack: stats + DSL (300px) */}
+                    <div
+                      className="flex flex-col overflow-hidden border-l border-terminal-border"
+                      style={{ width: '300px', minWidth: '300px' }}
+                    >
+                      <BacktestStats metrics={backtestResult.metrics} />
+                      {strategy && (
+                        <div className="flex-1 overflow-hidden flex flex-col">
+                          <StrategyDSLViewer strategy={strategy} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bottom row */}
+                  <div className="flex flex-1 overflow-hidden" style={{ minHeight: '180px' }}>
+                    {/* Heatmap */}
+                    <div className="flex-1 flex flex-col overflow-hidden border-r border-terminal-border">
+                      <BacktestHeatmap trades={trades} />
+                    </div>
+                    {/* Trades */}
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                      <TradeTable trades={trades} />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  {strategy ? (
+                    <p className="text-terminal-muted" style={{ fontSize: '12px' }}>
+                      Strategy loaded — run a backtest to see results
+                    </p>
+                  ) : (
+                    <p className="text-terminal-muted" style={{ fontSize: '12px' }}>
+                      No backtest results yet
+                    </p>
+                  )}
                 </div>
               )}
             </>
