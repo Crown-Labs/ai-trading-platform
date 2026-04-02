@@ -5,12 +5,15 @@ interface TradeTableProps {
   trades: Trade[];
 }
 
-const PAGE_SIZE = 10; // trades (each trade = 2 rows)
+const PAGE_SIZE = 10;
 
 function formatDate(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
-    + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return (
+    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) +
+    ' ' +
+    d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+  );
 }
 
 function formatPrice(n: number) {
@@ -19,12 +22,14 @@ function formatPrice(n: number) {
 
 function formatPnl(n: number) {
   const sign = n >= 0 ? '+' : '−';
-  return sign + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (
+    sign + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  );
 }
 
 export default function TradeTable({ trades }: TradeTableProps) {
   const [page, setPage] = useState(1);
-  const [sortDesc, setSortDesc] = useState(false); // oldest first by default (matches TradingView)
+  const [sortDesc, setSortDesc] = useState(false);
 
   const sortedTrades = [...trades].sort((a, b) => {
     const diff = new Date(a.entryTime).getTime() - new Date(b.entryTime).getTime();
@@ -36,7 +41,6 @@ export default function TradeTable({ trades }: TradeTableProps) {
 
   const initialCapital = 1_000_000;
 
-  // Cumulative P&L keyed by trade id (based on original order)
   const cumPnlMap: Record<number, number> = {};
   let running = 0;
   for (const t of trades) {
@@ -65,92 +69,134 @@ export default function TradeTable({ trades }: TradeTableProps) {
   };
 
   return (
-    <div className="card">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-white">Trade History</h2>
-        <span className="text-xs text-gray-500">
+    <div className="flex flex-col h-full overflow-hidden bg-terminal-surface">
+      {/* Header */}
+      <div
+        className="flex items-center justify-between flex-shrink-0 border-b border-terminal-border"
+        style={{ padding: '9px 12px' }}
+      >
+        <span
+          className="text-terminal-muted"
+          style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.07em' }}
+        >
+          Trade History
+        </span>
+        <span className="text-terminal-muted" style={{ fontSize: '10px' }}>
           {trades.length > 0
-            ? `Showing ${start + 1}–${Math.min(start + PAGE_SIZE, trades.length)} of ${trades.length} trades`
+            ? `${start + 1}–${Math.min(start + PAGE_SIZE, trades.length)} / ${trades.length}`
             : '0 trades'}
         </span>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
+      {/* Table */}
+      <div className="flex-1 overflow-y-auto overflow-x-auto">
+        <table className="w-full" style={{ borderCollapse: 'collapse', fontSize: '11px' }}>
           <thead>
-            <tr className="text-gray-500 border-b border-dark-700">
-              <th className="text-left py-2 px-2">#</th>
-              <th className="text-left py-2 px-2">Type</th>
-              <th className="text-left py-2 px-2">
+            <tr className="text-terminal-muted" style={{ borderBottom: '1px solid var(--border)' }}>
+              <th
+                className="text-left"
+                style={{ padding: '6px 10px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}
+              >
+                #
+              </th>
+              <th
+                className="text-left"
+                style={{ padding: '6px 10px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}
+              >
+                Side
+              </th>
+              <th
+                className="text-left"
+                style={{ padding: '6px 10px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}
+              >
                 <button
-                  onClick={() => { setSortDesc(d => !d); setPage(1); }}
-                  className="flex items-center gap-1 hover:text-white transition-colors"
+                  onClick={() => { setSortDesc((d) => !d); setPage(1); }}
+                  className="flex items-center gap-1 text-terminal-muted transition-colors"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', fontFamily: 'var(--font)', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--text)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = ''; }}
                 >
-                  Date / Time
-                  <span className="text-gray-600">{sortDesc ? '↓' : '↑'}</span>
+                  Entry {sortDesc ? '↓' : '↑'}
                 </button>
               </th>
-              <th className="text-left py-2 px-2">Signal</th>
-              <th className="text-right py-2 px-2">Price</th>
-              <th className="text-right py-2 px-2">Net P&amp;L</th>
-              <th className="text-right py-2 px-2">Cumulative P&amp;L</th>
+              <th
+                className="text-left"
+                style={{ padding: '6px 10px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}
+              >
+                Exit
+              </th>
+              <th
+                className="text-right"
+                style={{ padding: '6px 10px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}
+              >
+                Entry P.
+              </th>
+              <th
+                className="text-right"
+                style={{ padding: '6px 10px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}
+              >
+                Exit P.
+              </th>
+              <th
+                className="text-right"
+                style={{ padding: '6px 10px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}
+              >
+                P&amp;L
+              </th>
             </tr>
           </thead>
           <tbody>
             {paginated.map((trade) => {
-              const cum = cumPnlMap[trade.id] ?? 0;
-              const cumPct = (cum / initialCapital) * 100;
-              const pnlPct = trade.pnl / initialCapital * 100;
+              const pnlPct = (trade.pnl / initialCapital) * 100;
               const isLong = trade.side === 'long';
-              const entrySignal = isLong ? 'Long' : 'Short';
-              const exitSignal = isLong ? 'Long Exit' : 'Short Exit';
-              const sideColor = isLong ? 'text-green-400' : 'text-red-400';
-              const sideBg = isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400';
 
-              return [
-                // Entry row
-                <tr key={`${trade.id}-entry`} className="border-t border-dark-700/40 hover:bg-dark-700/20">
-                  <td className="py-1.5 px-2 text-gray-400 font-medium align-middle" rowSpan={2}>
-                    {trade.id}
-                  </td>
-                  <td className="py-1.5 px-2 align-middle">
-                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${sideBg}`}>
-                      Entry
+              return (
+                <tr
+                  key={trade.id}
+                  style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface2)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = ''; }}
+                >
+                  <td style={{ padding: '6px 10px', color: 'var(--muted)' }}>{trade.id}</td>
+                  <td style={{ padding: '6px 10px' }}>
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        padding: '1px 5px',
+                        borderRadius: '2px',
+                        background: isLong ? 'rgba(3,166,109,0.15)' : 'rgba(207,48,74,0.15)',
+                        color: isLong ? 'var(--green)' : 'var(--red)',
+                      }}
+                    >
+                      {isLong ? 'LONG' : 'SHORT'}
                     </span>
                   </td>
-                  <td className="py-1.5 px-2 text-gray-400 align-middle">{formatDate(trade.entryTime)}</td>
-                  <td className={`py-1.5 px-2 font-medium align-middle ${sideColor}`}>{entrySignal}</td>
-                  <td className="py-1.5 px-2 text-right text-gray-300 align-middle">{formatPrice(trade.entryPrice)}</td>
-                  <td className="py-1.5 px-2 text-right text-gray-600 align-middle">—</td>
-                  <td className="py-1.5 px-2 text-right text-gray-600 align-middle">—</td>
-                </tr>,
-
-                // Exit row
-                <tr key={`${trade.id}-exit`} className="border-b border-dark-700/60 hover:bg-dark-700/20">
-                  <td className="py-1.5 px-2 align-middle">
-                    <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-dark-600 text-gray-400">
-                      Exit
-                    </span>
+                  <td style={{ padding: '6px 10px', color: 'var(--muted)' }}>{formatDate(trade.entryTime)}</td>
+                  <td style={{ padding: '6px 10px', color: 'var(--muted)' }}>{formatDate(trade.exitTime)}</td>
+                  <td style={{ padding: '6px 10px', textAlign: 'right', color: 'var(--text)' }}>
+                    {formatPrice(trade.entryPrice)}
                   </td>
-                  <td className="py-1.5 px-2 text-gray-400 align-middle">{formatDate(trade.exitTime)}</td>
-                  <td className={`py-1.5 px-2 font-medium align-middle ${trade.isWin ? 'text-green-400' : 'text-red-400'}`}>
-                    {exitSignal}
+                  <td style={{ padding: '6px 10px', textAlign: 'right', color: 'var(--text)' }}>
+                    {formatPrice(trade.exitPrice)}
                   </td>
-                  <td className="py-1.5 px-2 text-right text-gray-300 align-middle">{formatPrice(trade.exitPrice)}</td>
-                  <td className={`py-1.5 px-2 text-right font-medium align-middle ${trade.isWin ? 'text-green-400' : 'text-red-400'}`}>
-                    <div>{formatPnl(trade.pnl)}</div>
-                    <div className="text-xs opacity-70">{pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%</div>
+                  <td style={{ padding: '6px 10px', textAlign: 'right' }}>
+                    <div style={{ color: trade.isWin ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                      {formatPnl(trade.pnl)}
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                      {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%
+                    </div>
                   </td>
-                  <td className={`py-1.5 px-2 text-right font-medium align-middle ${cum >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    <div>{formatPnl(cum)}</div>
-                    <div className="text-xs opacity-70">{cumPct >= 0 ? '+' : ''}{cumPct.toFixed(2)}%</div>
-                  </td>
-                </tr>,
-              ];
+                </tr>
+              );
             })}
             {trades.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-gray-500 text-sm">
+                <td
+                  colSpan={7}
+                  style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: '12px' }}
+                >
                   No trades yet. Run a backtest to see results.
                 </td>
               </tr>
@@ -158,11 +204,22 @@ export default function TradeTable({ trades }: TradeTableProps) {
           </tbody>
           {trades.length > 0 && (
             <tfoot>
-              <tr className="border-t border-dark-600 bg-dark-700/30">
-                <td colSpan={5} className="py-2 px-2 text-xs text-gray-500">
-                  {winCount}W / {trades.length - winCount}L &middot; Fees: ${totalFees.toFixed(2)}
+              <tr style={{ borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                <td
+                  colSpan={6}
+                  style={{ padding: '6px 10px', fontSize: '10px', color: 'var(--muted)' }}
+                >
+                  {winCount}W / {trades.length - winCount}L · Fees: ${totalFees.toFixed(2)}
                 </td>
-                <td colSpan={2} className={`py-2 px-2 text-right font-semibold text-sm ${totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                <td
+                  style={{
+                    padding: '6px 10px',
+                    textAlign: 'right',
+                    fontWeight: 600,
+                    fontSize: '12px',
+                    color: totalPnl >= 0 ? 'var(--green)' : 'var(--red)',
+                  }}
+                >
                   {formatPnl(totalPnl)}
                 </td>
               </tr>
@@ -171,25 +228,71 @@ export default function TradeTable({ trades }: TradeTableProps) {
         </table>
       </div>
 
+      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-1 mt-4">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-            className="px-3 py-1 text-xs rounded bg-dark-700 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">
-            &larr; Prev
+        <div
+          className="flex items-center justify-center gap-1 flex-shrink-0 border-t border-terminal-border"
+          style={{ padding: '6px 12px' }}
+        >
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="text-terminal-muted disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{
+              padding: '2px 8px',
+              fontSize: '10px',
+              background: 'var(--surface2)',
+              border: '1px solid var(--border)',
+              borderRadius: '3px',
+              cursor: 'pointer',
+              color: 'var(--muted)',
+              fontFamily: 'var(--font)',
+            }}
+          >
+            ← Prev
           </button>
           {getPageNumbers().map((p, i) =>
             p === '...' ? (
-              <span key={`e-${i}`} className="px-2 text-gray-600 text-xs">&hellip;</span>
+              <span key={`e-${i}`} className="text-terminal-muted" style={{ padding: '0 4px', fontSize: '10px' }}>
+                …
+              </span>
             ) : (
-              <button key={p} onClick={() => setPage(p as number)}
-                className={`w-7 h-7 text-xs rounded transition-colors ${page === p ? 'bg-primary-600 text-white' : 'bg-dark-700 text-gray-400 hover:text-white'}`}>
+              <button
+                key={p}
+                onClick={() => setPage(p as number)}
+                style={{
+                  width: '24px',
+                  height: '24px',
+                  fontSize: '10px',
+                  background: page === p ? 'var(--accent)' : 'var(--surface2)',
+                  color: page === p ? 'var(--bg)' : 'var(--muted)',
+                  border: `1px solid ${page === p ? 'var(--accent)' : 'var(--border)'}`,
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font)',
+                  fontWeight: page === p ? 700 : 400,
+                }}
+              >
                 {p}
               </button>
-            )
+            ),
           )}
-          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-            className="px-3 py-1 text-xs rounded bg-dark-700 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">
-            Next &rarr;
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="text-terminal-muted disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{
+              padding: '2px 8px',
+              fontSize: '10px',
+              background: 'var(--surface2)',
+              border: '1px solid var(--border)',
+              borderRadius: '3px',
+              cursor: 'pointer',
+              color: 'var(--muted)',
+              fontFamily: 'var(--font)',
+            }}
+          >
+            Next →
           </button>
         </div>
       )}
