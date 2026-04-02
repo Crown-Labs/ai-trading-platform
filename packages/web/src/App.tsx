@@ -142,15 +142,25 @@ function App() {
                   </div>
                 </>
               ) : (
-                <div className="flex-1 flex items-center justify-center">
+                <div className="flex-1 flex flex-col overflow-hidden">
                   {strategy ? (
-                    <p className="text-terminal-muted" style={{ fontSize: '12px' }}>
-                      Strategy loaded — run a backtest to see results
-                    </p>
+                    <>
+                      {/* Show DSL viewer even before first backtest */}
+                      <div className="flex-1 overflow-y-auto">
+                        <StrategyDSLViewer strategy={strategy} />
+                      </div>
+                      <div className="flex-shrink-0 border-t border-terminal-border flex items-center justify-center" style={{ padding: '12px' }}>
+                        <p className="text-terminal-muted" style={{ fontSize: '11px' }}>
+                          Strategy loaded — configure dates and run backtest
+                        </p>
+                      </div>
+                    </>
                   ) : (
-                    <p className="text-terminal-muted" style={{ fontSize: '12px' }}>
-                      No backtest results yet
-                    </p>
+                    <div className="flex-1 flex items-center justify-center">
+                      <p className="text-terminal-muted" style={{ fontSize: '12px' }}>
+                        No backtest results yet
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
