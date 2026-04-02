@@ -6,9 +6,10 @@ import { IndicatorsModule } from './indicators/indicators.module';
 import { BacktestModule } from './backtest/backtest.module';
 
 import { AiModule } from './ai/ai.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
-  imports: [MarketDataModule, IndicatorsModule, BacktestModule, AiModule],
+  imports: [MarketDataModule, IndicatorsModule, BacktestModule, AiModule, PrismaModule],
   controllers: [AppController],
   providers: [AppService],
 })
