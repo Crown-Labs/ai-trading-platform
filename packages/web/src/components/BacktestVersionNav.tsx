@@ -1,4 +1,5 @@
 import { BacktestRun } from '@ai-trading/shared';
+import { Badge, TerminalButton } from './ui';
 
 interface BacktestVersionNavProps {
   runs: BacktestRun[];
@@ -17,98 +18,83 @@ export default function BacktestVersionNav({
   const activeRun = runs[activeIndex];
 
   return (
-    <div className="card py-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() =>
-              activeIndex > 0 && onSelect(runs[activeIndex - 1].id)
-            }
-            disabled={activeIndex <= 0}
-            className="text-gray-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed px-1"
-          >
-            &larr;
-          </button>
-
-          <div className="flex items-center gap-1">
-            {runs.map((run) => (
-              <button
-                key={run.id}
-                onClick={() => onSelect(run.id)}
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                  run.id === activeRunId
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-dark-700 text-gray-400 hover:text-white'
-                }`}
-              >
-                v{run.version}
-                {run.id === activeRunId && ' \u2605'}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() =>
-              activeIndex < runs.length - 1 &&
-              onSelect(runs[activeIndex + 1].id)
-            }
-            disabled={activeIndex >= runs.length - 1}
-            className="text-gray-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed px-1"
-          >
-            &rarr;
-          </button>
-        </div>
-
-        {activeRun && (
-          <div className="flex items-center gap-3 text-xs text-gray-500">
-            <span className="text-gray-300 font-medium">
-              {activeRun.strategyName}
-            </span>
-            <span>
-              {activeRun.startDate.slice(0, 7)} &rarr;{' '}
-              {activeRun.endDate.slice(0, 7)}
-            </span>
-            <span
-              className={`font-semibold ${
-                activeRun.result.metrics.totalReturn >= 0
-                  ? 'text-green-400'
-                  : 'text-red-400'
-              }`}
+    <div className="px-3.5 py-1.5 border-b border-dark-700 bg-dark-800 flex items-start justify-between flex-wrap gap-1.5 flex-shrink-0">
+      <div className="flex items-center gap-1.5">
+        <span className="text-[9px] text-muted uppercase tracking-wider">Runs:</span>
+        <TerminalButton
+          variant="ghost"
+          size="sm"
+          onClick={() => activeIndex > 0 && onSelect(runs[activeIndex - 1].id)}
+          disabled={activeIndex <= 0}
+        >
+          ←
+        </TerminalButton>
+        <div className="flex items-center gap-1">
+          {runs.map((run) => (
+            <Badge
+              key={run.id}
+              variant={run.id === activeRunId ? 'accent' : 'outline'}
+              onClick={() => onSelect(run.id)}
+              className="font-semibold font-mono px-2.5"
             >
-              {activeRun.result.metrics.totalReturn >= 0 ? '+' : ''}
-              {activeRun.result.metrics.totalReturn.toFixed(1)}%
-            </span>
-            <span className="text-gray-600">
-              WR {activeRun.result.metrics.winRate.toFixed(0)}%
-            </span>
-          </div>
-        )}
+              v{run.version}
+              {run.id === activeRunId ? ' ★' : ''}
+            </Badge>
+          ))}
+        </div>
+        <TerminalButton
+          variant="ghost"
+          size="sm"
+          onClick={() => activeIndex < runs.length - 1 && onSelect(runs[activeIndex + 1].id)}
+          disabled={activeIndex >= runs.length - 1}
+        >
+          →
+        </TerminalButton>
       </div>
+
+      {activeRun && (
+        <div className="flex items-center gap-2.5 text-[10px] text-muted flex-wrap">
+          <span className="text-gray-200 font-semibold">{activeRun.strategyName}</span>
+          <span>
+            {activeRun.startDate.slice(0, 7)} → {activeRun.endDate.slice(0, 7)}
+          </span>
+          <span
+            className={`font-bold ${
+              activeRun.result.metrics.totalReturn >= 0 ? 'text-green' : 'text-red'
+            }`}
+          >
+            {activeRun.result.metrics.totalReturn >= 0 ? '+' : ''}
+            {activeRun.result.metrics.totalReturn.toFixed(1)}%
+          </span>
+          <span>WR {activeRun.result.metrics.winRate.toFixed(0)}%</span>
+        </div>
+      )}
 
       {/* Insufficient historical data warning */}
       {activeRun?.result.dataRange?.hasInsufficientData && (
-        <div className="mt-2 flex items-center gap-2 text-xs bg-orange-500/10 border border-orange-500/20 rounded-md px-3 py-1.5">
-          <span className="text-orange-400">⚠️</span>
-          <span className="text-orange-300">
-            Insufficient historical data for indicator warm-up (
-            {activeRun.result.dataRange.warmupBars} bars needed before {activeRun.result.dataRange.requestedStart}).
-            Results may be less accurate — consider using a longer date range.
-          </span>
+        <div className="w-full py-0.5 px-2 text-[10px] rounded mt-0.5 bg-orange-500/10 border border-orange-500/20 text-orange-300">
+          ⚠️ Insufficient historical data for indicator warm-up (
+          {activeRun.result.dataRange.warmupBars} bars needed before{' '}
+          {activeRun.result.dataRange.requestedStart}). Results may be less accurate — consider
+          using a longer date range.
         </div>
       )}
 
       {/* Data coverage warning */}
       {activeRun?.result.dataRange && !activeRun.result.dataRange.isComplete && (
-        <div className="mt-2 flex items-center gap-2 text-xs bg-yellow-500/10 border border-yellow-500/20 rounded-md px-3 py-1.5">
-          <span className="text-yellow-400">⚠️</span>
-          <span className="text-yellow-300">
-            Data available:{' '}
-            <span className="font-medium">
-              {activeRun.result.dataRange.actualStart.slice(0, 7)} – {activeRun.result.dataRange.actualEnd.slice(0, 7)}
-            </span>{' '}
-            ({activeRun.result.dataRange.actualDays} of {activeRun.result.dataRange.requestedDays} days,{' '}
-            {Math.round((activeRun.result.dataRange.actualDays / activeRun.result.dataRange.requestedDays) * 100)}% coverage)
-          </span>
+        <div className="w-full py-0.5 px-2 text-[10px] rounded mt-0.5 bg-yellow-500/10 border border-yellow-500/20 text-yellow-300">
+          ⚠️ Data available:{' '}
+          <span className="font-medium">
+            {activeRun.result.dataRange.actualStart.slice(0, 7)} –{' '}
+            {activeRun.result.dataRange.actualEnd.slice(0, 7)}
+          </span>{' '}
+          ({activeRun.result.dataRange.actualDays} of {activeRun.result.dataRange.requestedDays}{' '}
+          days,{' '}
+          {Math.round(
+            (activeRun.result.dataRange.actualDays / activeRun.result.dataRange.requestedDays) *
+              100,
+          )}
+          % coverage)
         </div>
       )}
     </div>
