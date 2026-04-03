@@ -16,21 +16,20 @@ interface ChatPanelProps {
 }
 
 function isStrategyYaml(yamlText: string): boolean {
-  return yamlText.includes('market:') &&
+  return (
+    yamlText.includes('market:') &&
     yamlText.includes('indicator:') &&
-    (yamlText.includes('entry:') || yamlText.includes('exit:'));
+    (yamlText.includes('entry:') || yamlText.includes('exit:'))
+  );
 }
 
 function extractStrategyYaml(text: string): string | null {
-  // Pattern 1: ```strategy fence
   const strategyMatch = text.match(/```strategy\s*\n([\s\S]*?)```/);
   if (strategyMatch) return strategyMatch[1];
 
-  // Pattern 2: ```yaml fence with strategy content
   const yamlMatch = text.match(/```yaml\s*\n([\s\S]*?)```/);
   if (yamlMatch && isStrategyYaml(yamlMatch[1])) return yamlMatch[1];
 
-  // Pattern 3: Plain YAML block starting with 'strategy:' anywhere in text
   const strategyIdx = text.indexOf('strategy:');
   if (strategyIdx !== -1) {
     const yamlText = text.substring(strategyIdx);
@@ -45,7 +44,11 @@ function extractStrategyYaml(text: string): string | null {
         continue;
       }
       consecutiveBlanks = 0;
-      if (blockLines.length > 0 && !/^[\s#\-"']/.test(line) && !/^\w[\w_]*:/.test(line)) {
+      if (
+        blockLines.length > 0 &&
+        !/^[\s#\-"']/.test(line) &&
+        !/^\w[\w_]*:/.test(line)
+      ) {
         break;
       }
       blockLines.push(line);
@@ -62,7 +65,6 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
   if (!yamlContent) return null;
 
   try {
-    // Try JSON first, fallback to YAML (support both formats)
     let raw: any;
     try {
       raw = JSON.parse(yamlContent);
@@ -70,8 +72,6 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
       raw = YAML.parse(yamlContent);
     }
 
-    // Support both flat format { name, market, ... }
-    // and nested format { strategy: { name }, market, ... }
     const parsed = raw.strategy ? { ...raw, name: raw.strategy.name ?? raw.name } : raw;
 
     if (
@@ -93,17 +93,18 @@ function parseStrategyFromResponse(text: string): StrategyDSL | null {
         symbol: parsed.market.symbol,
         timeframe: parsed.market.timeframe,
       },
-      indicator: {
-        // pass all indicator fields through — backend handles all types
-        ...parsed.indicator,
-      },
+      indicator: { ...parsed.indicator },
       entry: {
         condition: parsed.entry.condition,
-        ...(parsed.entry.short_condition?.length && { short_condition: parsed.entry.short_condition }),
+        ...(parsed.entry.short_condition?.length && {
+          short_condition: parsed.entry.short_condition,
+        }),
       },
       exit: {
         condition: parsed.exit.condition,
-        ...(parsed.exit.short_condition?.length && { short_condition: parsed.exit.short_condition }),
+        ...(parsed.exit.short_condition?.length && {
+          short_condition: parsed.exit.short_condition,
+        }),
       },
       risk: {
         stop_loss: parsed.risk.stop_loss,
@@ -146,7 +147,8 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
     const el = messagesContainerRef.current;
     if (!el) return;
     const threshold = 50;
-    isAtBottomRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - threshold;
+    isAtBottomRef.current =
+      el.scrollTop + el.clientHeight >= el.scrollHeight - threshold;
   };
 
   useEffect(() => {
@@ -161,7 +163,6 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
 
     setBacktestLoading(true);
 
-    // 1. Add user message
     const runMessage: ChatMessage = {
       role: 'user',
       content: `Run backtest for strategy: ${strategy.name}`,
@@ -170,7 +171,6 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
     onUpdate({ messages: messagesWithRun });
 
     try {
-      // 2. Run backtest
       const strategyWithDates = {
         ...strategy,
         startDate: dateRange.startDate,
@@ -190,7 +190,6 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
       );
       const candles = candleRes.ok ? await candleRes.json() : [];
 
-      // 3. Save candles in session (in-memory) + create versioned run
       onUpdate({ candles });
 
       if (onAddRun) {
@@ -207,20 +206,16 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
           createdAt: new Date().toISOString(),
         };
 
-        // Save trades + candles to IndexedDB (large data, not localStorage)
         await saveRunData({
           runId,
           trades: backtestResult.trades ?? [],
           candles,
           dataRange: backtestResult.dataRange,
         });
-        // Invalidate React Query cache for this runId
         queryClient.invalidateQueries({ queryKey: ['run-data', runId] });
-
         onAddRun(run);
       }
 
-      // 4. Send backtest results to AI for analysis
       const mt = backtestResult.metrics;
       const analysisRequest = `Backtest complete for "${strategy.name}". Here are the results:
 
@@ -270,17 +265,22 @@ Please analyze these results and suggest specific improvements to optimize the s
                   fullText += delta;
                   setStreamingText(fullText);
                 }
-              } catch { /* skip */ }
+              } catch {
+                /* skip */
+              }
             }
           }
 
           setStreamingText('');
-          // Attach strategy to message for history access — never override session.strategy from analysis
           const suggestedStrategy = parseStrategyFromResponse(fullText);
           onUpdate({
             messages: [
               ...messagesWithRun,
-              { role: 'assistant', content: fullText, ...(suggestedStrategy && { strategy: suggestedStrategy }) },
+              {
+                role: 'assistant',
+                content: fullText,
+                ...(suggestedStrategy && { strategy: suggestedStrategy }),
+              },
             ],
             backtestResult,
             candles,
@@ -294,7 +294,6 @@ Please analyze these results and suggest specific improvements to optimize the s
           ...messagesWithRun,
           { role: 'assistant', content: 'Backtest failed. Please try again.' },
         ],
-        // preserve existing backtest data if run fails
         backtestResult: session.backtestResult,
         candles: session.candles,
       });
@@ -316,17 +315,11 @@ Please analyze these results and suggest specific improvements to optimize the s
     setLoading(true);
     setStreamingText('');
 
-    // Strategy is parsed from AI chat response via parseStrategyFromResponse()
-    // /api/strategy/parse endpoint is no longer called from the frontend
-
     try {
       const res = await apiFetchRaw('/api/ai/chat', {
         method: 'POST',
         body: JSON.stringify({
-          messages: newMessages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
           sessionId: session.id,
         }),
       });
@@ -369,16 +362,18 @@ Please analyze these results and suggest specific improvements to optimize the s
       const parsedStrategy = parseStrategyFromResponse(fullText);
       const hasActiveStrategy = !!session.strategy;
 
-      // Attach strategy to message so it's always accessible in history
       const finalMessages: ChatMessage[] = [
         ...newMessages,
-        { role: 'assistant', content: fullText, ...(parsedStrategy && { strategy: parsedStrategy }) },
+        {
+          role: 'assistant',
+          content: fullText,
+          ...(parsedStrategy && { strategy: parsedStrategy }),
+        },
       ];
       setStreamingText('');
 
       onUpdate({
         messages: finalMessages,
-        // First strategy → auto-set as active; subsequent → user picks from history
         ...(parsedStrategy && !hasActiveStrategy && { strategy: parsedStrategy }),
       });
     } catch {
@@ -409,7 +404,8 @@ Please analyze these results and suggest specific improvements to optimize the s
             return (
               <pre
                 key={i}
-                className="bg-dark-900 border border-primary-500/30 rounded-lg p-3 mt-2 mb-2 text-primary-300 text-xs overflow-x-auto"
+                className="bg-dark-900 border border-dark-700 rounded p-2 mt-2 mb-2 text-[11px] overflow-x-auto"
+                style={{ color: '#fcd34d' }}
               >
                 <code>{code}</code>
               </pre>
@@ -420,23 +416,43 @@ Please analyze these results and suggest specific improvements to optimize the s
               key={i}
               remarkPlugins={[remarkGfm]}
               components={{
-                h1: ({ children }) => <h1 className="text-white font-bold text-base mt-3 mb-1">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-white font-bold text-sm mt-3 mb-1">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-gray-200 font-semibold text-sm mt-2 mb-1">{children}</h3>,
-                p: ({ children }) => <p className="text-gray-200 text-sm mb-2 leading-relaxed">{children}</p>,
-                strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
+                h1: ({ children }) => (
+                  <h1 className="text-gray-100 font-bold text-sm mt-3 mb-1">{children}</h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 className="text-gray-100 font-bold text-xs mt-3 mb-1">{children}</h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="text-gray-200 font-semibold text-xs mt-2 mb-1">{children}</h3>
+                ),
+                p: ({ children }) => (
+                  <p className="text-gray-200 text-xs mb-2 leading-relaxed">{children}</p>
+                ),
+                strong: ({ children }) => (
+                  <strong className="text-gray-100 font-semibold">{children}</strong>
+                ),
                 em: ({ children }) => <em className="text-gray-300 italic">{children}</em>,
-                ul: ({ children }) => <ul className="list-disc list-inside text-gray-300 text-sm space-y-0.5 mb-2 pl-2">{children}</ul>,
-                ol: ({ children }) => <ol className="list-decimal list-inside text-gray-300 text-sm space-y-0.5 mb-2 pl-2">{children}</ol>,
-                li: ({ children }) => <li className="text-gray-300 text-sm">{children}</li>,
+                ul: ({ children }) => (
+                  <ul className="list-disc list-inside text-gray-300 text-xs space-y-0.5 mb-2 pl-2">
+                    {children}
+                  </ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="list-decimal list-inside text-gray-300 text-xs space-y-0.5 mb-2 pl-2">
+                    {children}
+                  </ol>
+                ),
+                li: ({ children }) => <li className="text-gray-300 text-xs">{children}</li>,
                 code: ({ children, className }) => {
                   const isBlock = className?.includes('language-');
                   return isBlock ? (
-                    <pre className="bg-dark-900 rounded-lg p-3 text-xs text-gray-300 overflow-x-auto my-2">
+                    <pre className="bg-dark-900 rounded p-2 text-[11px] text-gray-300 overflow-x-auto my-2">
                       <code>{children}</code>
                     </pre>
                   ) : (
-                    <code className="bg-dark-900 text-primary-300 text-xs px-1.5 py-0.5 rounded">{children}</code>
+                    <code className="bg-dark-900 text-accent text-[11px] px-1 py-0.5 rounded">
+                      {children}
+                    </code>
                   );
                 },
                 table: ({ children }) => (
@@ -446,15 +462,32 @@ Please analyze these results and suggest specific improvements to optimize the s
                 ),
                 thead: ({ children }) => <thead>{children}</thead>,
                 tbody: ({ children }) => <tbody>{children}</tbody>,
-                tr: ({ children }) => <tr className="border-b border-dark-600">{children}</tr>,
-                th: ({ children }) => <th className="text-left text-gray-400 font-medium py-1.5 px-2 bg-dark-700/50">{children}</th>,
-                td: ({ children }) => <td className="text-gray-300 py-1.5 px-2">{children}</td>,
-                blockquote: ({ children }) => (
-                  <blockquote className="border-l-2 border-primary-500 pl-3 my-2 text-gray-400 italic text-sm">{children}</blockquote>
+                tr: ({ children }) => (
+                  <tr className="border-b border-dark-700">{children}</tr>
                 ),
-                hr: () => <hr className="border-dark-600 my-3" />,
+                th: ({ children }) => (
+                  <th className="text-left text-muted font-medium py-1 px-2 bg-dark-700/50">
+                    {children}
+                  </th>
+                ),
+                td: ({ children }) => (
+                  <td className="text-gray-300 py-1 px-2">{children}</td>
+                ),
+                blockquote: ({ children }) => (
+                  <blockquote className="border-l-2 border-accent pl-3 my-2 text-muted italic text-xs">
+                    {children}
+                  </blockquote>
+                ),
+                hr: () => <hr className="border-dark-700 my-3" />,
                 a: ({ href, children }) => (
-                  <a href={href} className="text-primary-400 underline hover:text-primary-300" target="_blank" rel="noreferrer">{children}</a>
+                  <a
+                    href={href}
+                    className="text-accent underline hover:opacity-80"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {children}
+                  </a>
                 ),
               }}
             >
@@ -467,98 +500,128 @@ Please analyze these results and suggest specific improvements to optimize the s
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <h2 className="text-lg font-bold text-white mb-4">Strategy Chat</h2>
+    <div className="flex flex-col h-full overflow-hidden bg-dark-800">
+      {/* Chat header */}
+      <div className="flex items-center justify-between px-3.5 py-2 border-b border-dark-700 flex-shrink-0">
+        <span className="text-[10px] text-muted uppercase tracking-wider">AI Assistant</span>
+        <span className="bg-accent text-dark-900 text-[10px] px-1.5 py-0.5 rounded font-bold">
+          {session.title}
+        </span>
+      </div>
 
-      <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto space-y-3 mb-4 min-h-0">
+      {/* Messages */}
+      <div
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2.5 min-h-0"
+      >
         {messages.length === 0 && !streamingText && (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
-            <div className="w-12 h-12 rounded-full bg-primary-500/10 border border-primary-500/20 flex items-center justify-center mb-3">
-              <span className="text-2xl">&#x1F4C8;</span>
-            </div>
-            <p className="text-gray-400 text-sm font-medium mb-1">Start with a strategy</p>
-            <p className="text-gray-600 text-xs">
-              e.g. &quot;Buy BTC when RSI drops below 30, sell when RSI hits 70, stop loss 3%&quot;
+            <p className="text-muted text-xs font-medium mb-1">Start with a strategy</p>
+            <p className="text-muted/60 text-[11px]">
+              e.g. &quot;Buy BTC when RSI drops below 30, sell when RSI hits 70&quot;
             </p>
           </div>
         )}
+
         {messages.map((msg, i) =>
           msg.role === 'user' ? (
             <div key={i} className="flex justify-end">
-              <div className="max-w-[80%] bg-primary-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm">
-                {msg.content}
+              <div className="max-w-[92%]">
+                <div
+                  className="px-2.5 py-2 rounded-md text-[12px] leading-relaxed font-mono"
+                  style={{ background: 'var(--accent)', color: 'var(--bg)' }}
+                >
+                  {msg.content}
+                </div>
+                <div className="text-[10px] text-muted mt-1 text-right pr-1">You</div>
               </div>
             </div>
           ) : (
-            <div key={i} className="flex gap-2 items-start">
-              <div className="w-7 h-7 rounded-full bg-dark-600 border border-primary-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-primary-400 text-xs font-bold">AI</span>
+            <div key={i} className="flex flex-col gap-1.5 max-w-[92%]">
+              <div className="bg-dark-700 border border-dark-700 px-2.5 py-2 rounded-md text-[12px] leading-relaxed">
+                <div className="font-mono">{renderContent(msg.content)}</div>
               </div>
-              <div className="max-w-[85%] space-y-2">
-                <div className="bg-dark-700 text-gray-200 px-4 py-2.5 rounded-2xl rounded-tl-sm text-sm">
-                  <div className="font-sans">{renderContent(msg.content)}</div>
-                </div>
-                {/* Strategy card attached to this message */}
-                {msg.strategy && (
-                  <div className="bg-dark-800 border border-primary-500/20 rounded-xl px-3 py-2.5 text-xs">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-primary-400 font-medium truncate">✨ {msg.strategy.name}</p>
-                        <p className="text-gray-500 mt-0.5">
-                          {msg.strategy.market.symbol} · {msg.strategy.market.timeframe} · SL {msg.strategy.risk.stop_loss}% · TP {msg.strategy.risk.take_profit}%
-                        </p>
-                      </div>
-                      {(() => {
-                          const activeRun = session.backtestRuns?.find(r => r.id === session.activeRunId);
-                          const isActive = !activeRun
-                            ? session.strategy?.name === msg.strategy.name
-                            : activeRun.strategy.name === msg.strategy.name;
-                          return (
-                            <button
-                              onClick={() => onUpdate({
-                                strategy: msg.strategy,
-                                activeRunId: undefined, // clear run so DSL card shows new strategy
-                                backtestResult: undefined,
-                              })}
-                              className={`flex-shrink-0 px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                                isActive
-                                  ? 'bg-primary-600/30 text-primary-300 cursor-default'
-                                  : 'bg-primary-600 hover:bg-primary-500 text-white'
-                              }`}
-                              disabled={isActive}
-                            >
-                              {isActive ? 'Active' : 'Apply'}
-                            </button>
-                          );
-                        })()}
+              <div className="text-[10px] text-muted pl-1">AlgoEdge AI</div>
+              {/* Strategy card attached to this message */}
+              {msg.strategy && (
+                <div className="bg-dark-900 border border-dark-700 rounded px-3 py-2 text-xs"
+                  style={{ borderColor: 'rgba(240,185,11,0.25)', background: 'rgba(240,185,11,0.04)' }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-accent font-medium truncate text-[10px] mb-0.5">
+                        ✨ AI suggests a new strategy
+                      </p>
+                      <p className="text-gray-200 text-[11px] font-mono">{msg.strategy.name}</p>
+                      <p className="text-muted text-[10px] mt-0.5">
+                        {msg.strategy.market.symbol} · {msg.strategy.market.timeframe} · SL{' '}
+                        {msg.strategy.risk.stop_loss}% · TP {msg.strategy.risk.take_profit}%
+                      </p>
                     </div>
+                    {(() => {
+                      const activeRun = session.backtestRuns?.find(
+                        (r) => r.id === session.activeRunId,
+                      );
+                      const isActive = !activeRun
+                        ? session.strategy?.name === msg.strategy!.name
+                        : activeRun.strategy.name === msg.strategy!.name;
+                      return (
+                        <button
+                          onClick={() =>
+                            onUpdate({
+                              strategy: msg.strategy,
+                              activeRunId: undefined,
+                              backtestResult: undefined,
+                            })
+                          }
+                          className={`flex-shrink-0 px-3 py-1 rounded text-xs font-bold font-mono transition-colors ${
+                            isActive
+                              ? 'bg-accent/20 text-accent cursor-default'
+                              : 'bg-accent text-dark-900 hover:opacity-90'
+                          }`}
+                          style={{ border: 'none' }}
+                          disabled={isActive}
+                        >
+                          {isActive ? 'Active' : 'Apply & Run'}
+                        </button>
+                      );
+                    })()}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           ),
         )}
+
         {streamingText && (
-          <div className="flex gap-2 items-start">
-            <div className="w-7 h-7 rounded-full bg-dark-600 border border-primary-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <span className="text-primary-400 text-xs font-bold">AI</span>
+          <div className="flex flex-col gap-1.5 max-w-[92%]">
+            <div className="bg-dark-700 border border-dark-700 px-2.5 py-2 rounded-md text-[12px] leading-relaxed">
+              <div className="font-mono">{renderContent(streamingText)}</div>
+              <span
+                className="inline-block w-1.5 h-3 bg-accent animate-pulse ml-0.5 align-middle"
+              />
             </div>
-            <div className="max-w-[85%] bg-dark-700 text-gray-200 px-4 py-2.5 rounded-2xl rounded-tl-sm text-sm">
-              <div className="font-sans">{renderContent(streamingText)}</div>
-              <span className="inline-block w-1.5 h-4 bg-primary-400 animate-pulse ml-0.5 align-middle" />
-            </div>
+            <div className="text-[10px] text-muted pl-1">AlgoEdge AI</div>
           </div>
         )}
+
         {loading && !streamingText && (
-          <div className="flex gap-2 items-center">
-            <div className="w-7 h-7 rounded-full bg-dark-600 border border-primary-500/30 flex items-center justify-center flex-shrink-0">
-              <span className="text-primary-400 text-xs font-bold">AI</span>
-            </div>
-            <div className="bg-dark-700 px-4 py-2.5 rounded-2xl rounded-tl-sm">
+          <div className="flex items-center gap-2">
+            <div className="bg-dark-700 border border-dark-700 px-3 py-2 rounded-md">
               <div className="flex gap-1 items-center h-4">
-                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span
+                  className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce"
+                  style={{ animationDelay: '150ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce"
+                  style={{ animationDelay: '300ms' }}
+                />
               </div>
             </div>
           </div>
@@ -566,7 +629,8 @@ Please analyze these results and suggest specific improvements to optimize the s
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t border-dark-700 pt-3">
+      {/* Chat input */}
+      <div className="border-t border-dark-700 px-3 py-2 flex-shrink-0">
         <div className="flex gap-2 items-end">
           <textarea
             value={input}
@@ -577,24 +641,30 @@ Please analyze these results and suggest specific improvements to optimize the s
                 handleSend();
               }
             }}
-            placeholder="Describe your trading strategy..."
-            className="flex-grow bg-dark-700 border border-dark-600 rounded-xl px-4 py-2.5 text-gray-200 text-sm placeholder-gray-600 resize-none focus:outline-none focus:border-primary-500/50 transition-colors"
+            placeholder="Describe a strategy or ask AI to modify..."
+            className="flex-1 bg-dark-900 border border-dark-700 rounded px-2.5 py-1.5 text-gray-200 text-[12px] placeholder-muted resize-none focus:outline-none focus:border-muted transition-colors font-mono"
             rows={2}
           />
           <button
             onClick={handleSend}
             disabled={loading || !input.trim()}
-            className="bg-primary-600 hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl px-4 py-2.5 text-sm font-medium transition-colors flex-shrink-0 self-end"
+            className="bg-accent border-none rounded px-3.5 py-1.5 text-dark-900 text-[12px] font-bold cursor-pointer font-mono flex-shrink-0 self-end disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
           >
-            Send
+            ▶
           </button>
         </div>
       </div>
 
+      {/* Backtest controls */}
       {session.strategy && (
-        <div className="border-t border-dark-700 pt-3 mt-1 space-y-2">
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-500">Range:</span>
+        <div className="border-t border-dark-700 px-3 py-2 bg-dark-900 flex-shrink-0">
+          <div className="text-[9px] text-muted uppercase tracking-wider mb-1.5">
+            Backtest Parameters
+          </div>
+
+          {/* Range presets */}
+          <div className="flex items-center gap-1 mb-1.5 flex-wrap">
+            <span className="text-[10px] text-muted">Range:</span>
             {PRESETS.map((p) => {
               const start = new Date();
               start.setMonth(start.getMonth() - p.months);
@@ -603,11 +673,16 @@ Please analyze these results and suggest specific improvements to optimize the s
               return (
                 <button
                   key={p.label}
-                  onClick={() => setDateRange({ startDate: startStr, endDate: new Date().toISOString().slice(0, 10) })}
-                  className={`text-xs px-2 py-1 rounded transition-colors ${
+                  onClick={() =>
+                    setDateRange({
+                      startDate: startStr,
+                      endDate: new Date().toISOString().slice(0, 10),
+                    })
+                  }
+                  className={`text-[10px] px-1.5 py-0.5 rounded font-mono border transition-colors ${
                     isActive
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-dark-700 text-gray-400 hover:text-white'
+                      ? 'bg-accent border-accent text-dark-900 font-bold'
+                      : 'bg-dark-800 border-dark-700 text-muted hover:text-gray-200'
                   }`}
                 >
                   {p.label}
@@ -616,40 +691,42 @@ Please analyze these results and suggest specific improvements to optimize the s
             })}
           </div>
 
-          <div className="flex gap-2 items-center">
+          {/* Date pickers */}
+          <div className="flex items-center gap-1.5 mb-1.5">
             <input
               type="date"
               value={dateRange.startDate}
               onChange={(e) => setDateRange((d) => ({ ...d, startDate: e.target.value }))}
-              className="flex-1 bg-dark-700 border border-dark-600 rounded px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-primary-500"
+              className="flex-1 bg-dark-800 border border-dark-700 rounded px-1.5 py-1 text-[11px] text-gray-200 focus:outline-none focus:border-muted font-mono"
             />
-            <span className="text-gray-600 text-xs">&rarr;</span>
+            <span className="text-muted text-[11px]">→</span>
             <input
               type="date"
               value={dateRange.endDate}
               onChange={(e) => setDateRange((d) => ({ ...d, endDate: e.target.value }))}
-              className="flex-1 bg-dark-700 border border-dark-600 rounded px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-primary-500"
+              className="flex-1 bg-dark-800 border border-dark-700 rounded px-1.5 py-1 text-[11px] text-gray-200 focus:outline-none focus:border-muted font-mono"
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-500 whitespace-nowrap">Capital ($)</label>
+          {/* Capital */}
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <label className="text-[10px] text-muted whitespace-nowrap">Capital ($)</label>
             <input
               type="number"
               min={100}
               step={1000}
               value={initialCapital}
               onChange={(e) => setInitialCapital(Number(e.target.value))}
-              className="flex-1 bg-dark-700 border border-dark-600 rounded px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-primary-500"
+              className="flex-1 bg-dark-800 border border-dark-700 rounded px-1.5 py-1 text-[11px] text-gray-200 focus:outline-none focus:border-muted font-mono"
             />
           </div>
 
           <button
             onClick={handleRunBacktest}
             disabled={backtestLoading}
-            className="btn-primary w-full disabled:opacity-50"
+            className="w-full bg-accent border-none rounded text-dark-900 text-[12px] font-bold py-2 cursor-pointer font-mono tracking-wider hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
           >
-            {backtestLoading ? 'Running Backtest...' : 'Run Backtest'}
+            {backtestLoading ? 'Running...' : '⚡ RUN BACKTEST'}
           </button>
         </div>
       )}

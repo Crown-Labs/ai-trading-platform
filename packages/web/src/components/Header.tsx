@@ -1,47 +1,92 @@
+import { ChatSession } from '../types/chat';
+import { BacktestRun } from '@ai-trading/shared';
+
 interface HeaderProps {
   user: { name?: string; picture?: string; email: string };
   onLogout: () => void;
+  activeSession?: ChatSession | null;
+  activeRun?: BacktestRun | null;
 }
 
-export default function Header({ user, onLogout }: HeaderProps) {
-  return (
-    <header className="bg-dark-800 border-b border-dark-700">
-      <nav className="container mx-auto px-6 py-3">
-        <div className="flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">AI</span>
-            </div>
-            <span className="text-xl font-bold text-white">Trading Platform</span>
-          </div>
+export default function Header({ user, onLogout, activeSession, activeRun }: HeaderProps) {
+  const strategy = activeRun?.strategy ?? activeSession?.strategy ?? null;
+  const metrics = activeRun?.result?.metrics ?? activeSession?.backtestResult?.metrics ?? null;
+  const displayName = user.name || user.email;
+  const initials = displayName.slice(0, 2).toUpperCase();
 
-          {/* User */}
-          <div className="flex items-center space-x-3">
-            {user.picture ? (
-              <img
-                src={user.picture}
-                alt={user.name || user.email}
-                className="w-8 h-8 rounded-full"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-white text-sm font-medium">
-                {(user.name || user.email)[0].toUpperCase()}
+  return (
+    <header className="h-12 bg-dark-800 border-b border-dark-700 flex items-center px-4 gap-3 flex-shrink-0 z-50">
+      {/* Logo */}
+      <div className="flex items-center gap-2 font-bold text-sm text-accent flex-shrink-0">
+        <div className="w-7 h-7 bg-accent rounded flex items-center justify-center text-dark-900 font-black text-xs">
+          ⚡
+        </div>
+        AlgoEdge
+      </div>
+
+      {/* Center chips */}
+      <div className="flex-1 flex items-center justify-center gap-1.5 flex-wrap overflow-hidden">
+        {activeSession && (
+          <>
+            <div className="bg-dark-700 border border-dark-700 px-2 py-0.5 rounded text-[11px] text-muted whitespace-nowrap">
+              Session <span className="text-gray-200 font-semibold">{activeSession.title}</span>
+            </div>
+            {strategy && (
+              <>
+                <div className="bg-dark-700 border border-dark-700 px-2 py-0.5 rounded text-[11px] whitespace-nowrap">
+                  <span className="text-accent font-bold">{strategy.market.symbol}</span>
+                </div>
+                <div className="bg-dark-700 border border-dark-700 px-2 py-0.5 rounded text-[11px] whitespace-nowrap">
+                  <span className="text-gray-200 font-semibold">{strategy.market.timeframe}</span>
+                </div>
+              </>
+            )}
+            {activeRun && (
+              <div className="bg-dark-700 border border-dark-700 px-2 py-0.5 rounded text-[11px] whitespace-nowrap">
+                v{activeRun.version} <span className="text-accent font-bold">latest</span>
               </div>
             )}
-            <span className="text-gray-300 text-sm hidden md:block">
-              {user.name || user.email}
-            </span>
-            <button
-              onClick={onLogout}
-              className="text-gray-400 hover:text-white text-sm transition-colors"
-            >
-              Sign Out
-            </button>
-          </div>
+            {metrics && (
+              <div className="bg-dark-700 border border-dark-700 px-2 py-0.5 rounded text-[11px] whitespace-nowrap">
+                <span className={`font-bold ${metrics.totalReturn >= 0 ? 'text-green' : 'text-red'}`}>
+                  {metrics.totalReturn >= 0 ? '+' : ''}{metrics.totalReturn.toFixed(1)}%
+                </span>
+              </div>
+            )}
+            {metrics && (
+              <div className="bg-dark-700 border border-dark-700 px-2 py-0.5 rounded text-[11px] whitespace-nowrap text-muted">
+                {metrics.totalTrades} trades
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Right: status + user */}
+      <div className="flex items-center gap-2.5 flex-shrink-0">
+        <div className="flex items-center gap-1.5 text-[11px] text-green">
+          <div className="w-1.5 h-1.5 rounded-full bg-green flex-shrink-0" />
+          Live
         </div>
-      </nav>
+        <button
+          onClick={onLogout}
+          className="flex items-center gap-1.5 bg-transparent border border-dark-700 rounded px-2 py-1 cursor-pointer text-gray-200 hover:border-muted transition-colors"
+        >
+          {user.picture ? (
+            <img
+              src={user.picture}
+              alt={displayName}
+              className="w-6 h-6 rounded"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-6 h-6 bg-accent rounded flex items-center justify-center text-[10px] font-black text-dark-900">
+              {initials}
+            </div>
+          )}
+          <span className="text-[11px]">{user.name?.split(' ')[0] || user.email.split('@')[0]}</span>
+        </button>
+      </div>
     </header>
   );
 }
