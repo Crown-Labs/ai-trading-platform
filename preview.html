@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Trading Platform — UI Preview</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      :root {
+        --bg: #0b0e11;
+        --surface: #1e2026;
+        --surface2: #2b2f36;
+        --border: #2b2f36;
+        --accent: #f0b90b;
+        --green: #03a66d;
+        --red: #cf304a;
+        --text: #eaecef;
+        --muted: #848e9c;
+        --font: "Courier New", monospace;
+      }
+      html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
+
+      /* ── HEADER ── */
+      header {
+        position: fixed; top: 0; left: 0; right: 0; height: 48px;
+        background: var(--surface); border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; padding: 0 16px; gap: 12px; z-index: 100;
+      }
+      .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: var(--accent); }
+      .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 5px; display: flex; align-items: center; justify-content: center; color: var(--bg); font-size: 13px; font-weight: 900; }
+      .header-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; }
+      .h-chip { background: var(--surface2); border: 1px solid var(--border); padding: 2px 8px; border-radius: 4px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+      .h-chip .val { color: var(--text); font-weight: 600; }
+      .h-chip .green { color: var(--green); font-weight: 700; }
+      .h-chip .red { color: var(--red); font-weight: 700; }
+      .h-chip .accent { color: var(--accent); font-weight: 700; }
+      .header-right { display: flex; align-items: center; gap: 10px; }
+      .status { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--green); }
+      .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+      .user-btn { display: flex; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px 4px 4px; cursor: pointer; color: var(--text); }
+      .avatar { width: 24px; height: 24px; background: var(--accent); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; color: var(--bg); }
+
+      /* ── LAYOUT ── */
+      .layout { display: flex; height: 100vh; padding-top: 48px; overflow: hidden; }
+
+      /* ── SIDEBAR ── */
+      .sidebar { width: 190px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; transition: width 0.2s; }
+      .sidebar.collapsed { width: 44px; }
+      .sidebar-top { padding: 8px 6px 6px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+      .toggle-btn { width: 32px; height: 28px; background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+      .btn-new { background: var(--accent); border: none; border-radius: 4px; color: var(--bg); font-size: 11px; font-weight: 700; padding: 6px 8px; cursor: pointer; font-family: var(--font); display: flex; align-items: center; gap: 5px; overflow: hidden; white-space: nowrap; }
+      .sidebar-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+      .sidebar.collapsed .sidebar-label { display: none; }
+      .sidebar.collapsed .btn-new-label { display: none; }
+      .sidebar.collapsed .btn-new { width: 32px; justify-content: center; padding: 6px; }
+      .sess-list { flex: 1; overflow-y: auto; padding: 4px 5px; }
+      .sess-item { padding: 7px 6px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 7px; margin-bottom: 1px; }
+      .sess-item:hover { background: var(--surface2); }
+      .sess-item.active { background: var(--surface2); border-left: 2px solid var(--accent); padding-left: 4px; }
+      .sess-icon { width: 22px; height: 22px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
+      .sess-info { overflow: hidden; flex: 1; }
+      .sidebar.collapsed .sess-info { display: none; }
+      .sess-name { font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .sess-meta { font-size: 10px; color: var(--muted); margin-top: 2px; display: flex; justify-content: space-between; }
+      .ret-pos { color: var(--green); font-weight: 600; }
+      .ret-neg { color: var(--red); font-weight: 600; }
+
+      /* ── CHAT PANEL ── */
+      .chat-panel { width: 360px; min-width: 360px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+      .chat-header { padding: 8px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+      .chat-title-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+      .session-badge { background: var(--accent); color: var(--bg); font-size: 10px; padding: 2px 7px; border-radius: 3px; font-weight: 700; }
+      .messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+      .msg { max-width: 92%; }
+      .msg.user { align-self: flex-end; }
+      .msg.ai { align-self: flex-start; }
+      .msg-bubble { padding: 8px 11px; border-radius: 6px; font-size: 12px; line-height: 1.5; }
+      .msg.user .msg-bubble { background: var(--accent); color: var(--bg); }
+      .msg.ai .msg-bubble { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+      .msg-meta { font-size: 10px; color: var(--muted); margin-top: 3px; padding: 0 4px; }
+      .msg.user .msg-meta { text-align: right; }
+
+      /* AI suggested strategy banner */
+      .suggested-banner { margin: 0 10px 8px; border: 1px solid rgba(240,185,11,0.25); background: rgba(240,185,11,0.04); border-radius: 6px; padding: 10px 12px; }
+      .suggested-label { font-size: 10px; color: var(--accent); margin-bottom: 4px; }
+      .suggested-name { font-size: 11px; color: var(--text); font-family: var(--font); }
+      .suggested-meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
+      .suggested-actions { display: flex; gap: 8px; margin-top: 8px; }
+      .btn-dismiss { background: transparent; border: none; font-size: 11px; color: var(--muted); cursor: pointer; padding: 4px 8px; }
+      .btn-apply { background: var(--accent); border: none; border-radius: 4px; color: var(--bg); font-size: 11px; font-weight: 700; padding: 4px 12px; cursor: pointer; font-family: var(--font); }
+
+      /* DSL code block in chat */
+      .code-block { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; font-size: 11px; color: #fcd34d; margin-top: 6px; white-space: pre; overflow-x: auto; }
+
+      /* Chat input */
+      .chat-input-area { padding: 8px 12px; border-top: 1px solid var(--border); }
+      .chat-input-row { display: flex; gap: 8px; }
+      .chat-input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: var(--font); font-size: 12px; padding: 7px 10px; outline: none; resize: none; }
+      .btn-send { background: var(--accent); border: none; border-radius: 5px; color: var(--bg); padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: var(--font); }
+
+      /* Backtest controls at bottom of chat */
+      .backtest-controls { border-top: 1px solid var(--border); padding: 8px 12px; background: var(--bg); }
+      .ctrl-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+      .ctrl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+      .ctrl-field label { font-size: 10px; color: var(--muted); display: block; margin-bottom: 3px; }
+      .ctrl-field input, .ctrl-field select { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: var(--font); font-size: 11px; padding: 5px 7px; border-radius: 3px; outline: none; }
+      .btn-run { width: 100%; background: var(--accent); border: none; border-radius: 4px; color: var(--bg); font-size: 12px; font-weight: 700; padding: 8px; cursor: pointer; font-family: var(--font); letter-spacing: .05em; }
+
+      /* ── RIGHT PANEL ── */
+      .right-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+      /* Version Nav */
+      .version-nav { padding: 6px 14px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+      .vn-left { display: flex; align-items: center; gap: 6px; }
+      .vn-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+      .vn-btn { padding: 3px 9px; border-radius: 3px; font-size: 10px; font-weight: 600; background: transparent; color: var(--muted); border: 1px solid var(--border); cursor: pointer; font-family: var(--font); }
+      .vn-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+      .vn-right { font-size: 10px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      .vn-right .pos { color: var(--green); font-weight: 700; }
+      .vn-right .neg { color: var(--red); font-weight: 700; }
+      .vn-right .name { color: var(--text); font-weight: 600; }
+      .warn-strip { width: 100%; padding: 3px 8px; font-size: 10px; border-radius: 3px; margin-top: 2px; }
+      .warn-orange { background: rgba(249,115,22,.08); border: 1px solid rgba(249,115,22,.2); color: #fb923c; }
+      .warn-yellow { background: rgba(234,179,8,.08); border: 1px solid rgba(234,179,8,.2); color: #facc15; }
+
+      /* StrategyDSL strip */
+      .strategy-strip { padding: 6px 14px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+      .strategy-name { font-weight: 700; font-size: 13px; }
+      .ind-badge { background: var(--surface2); border: 1px solid var(--border); font-size: 10px; padding: 2px 6px; border-radius: 3px; color: var(--accent); white-space: nowrap; }
+      .risk-meta { display: flex; gap: 8px; font-size: 11px; margin-left: auto; }
+      .sl { color: var(--red); } .tp { color: var(--green); }
+      .copy-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; font-family: var(--font); }
+
+      /* Top row */
+      .top-row { flex: 0 0 52%; display: flex; border-bottom: 1px solid var(--border); overflow: hidden; min-height: 0; }
+
+      /* Chart */
+      .chart-card { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+      .card-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+      .card-title { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; display: flex; align-items: center; gap: 8px; }
+      .card-title strong { color: var(--text); font-size: 12px; text-transform: none; letter-spacing: 0; }
+      .pair-badge { background: var(--surface2); border: 1px solid var(--border); font-size: 10px; padding: 2px 6px; border-radius: 3px; color: var(--accent); }
+      .tf-tabs { display: flex; gap: 2px; }
+      .tf-btn { background: none; border: 1px solid var(--border); color: var(--muted); font-size: 10px; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-family: var(--font); }
+      .tf-btn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+      .chart-area { flex: 1; position: relative; overflow: hidden; }
+      .chart-info { position: absolute; top: 14px; left: 14px; }
+      .chart-val { font-size: 22px; font-weight: 700; color: var(--green); line-height: 1; }
+      .chart-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+      /* Right stack */
+      .right-stack { width: 280px; min-width: 280px; border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+      .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
+      .stat-cell { background: var(--surface); padding: 9px 12px; }
+      .stat-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 4px; }
+      .stat-val { font-size: 16px; font-weight: 700; line-height: 1; }
+      .stat-val.green { color: var(--green); }
+      .stat-val.red { color: var(--red); }
+      .stat-val.accent { color: var(--accent); }
+      .stat-val.white { color: var(--text); }
+      .stat-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+      /* DSL collapsible */
+      .dsl-section { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+      .dsl-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+      .dsl-body { flex: 1; overflow-y: auto; padding: 10px 12px; font-size: 11px; line-height: 1.8; }
+      .dk { color: #fcd34d; } .dv { color: #6ee7b7; } .dc { color: var(--muted); }
+
+      /* Bottom row */
+      .bottom-row { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+
+      /* Heatmap */
+      .heatmap-card { flex: 1; border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+      .section-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; cursor: pointer; }
+      .section-body { flex: 1; overflow-y: auto; padding: 8px 12px; }
+      .hm-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+      .hm-hdr { font-size: 9px; color: var(--muted); text-align: center; padding: 2px; }
+      .hm-cell { aspect-ratio: 1; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; cursor: pointer; }
+
+      /* Trade table */
+      .trades-card { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+      .table-wrap { flex: 1; overflow-y: auto; }
+      table.ttbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+      table.ttbl th { padding: 6px 8px; text-align: left; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
+      table.ttbl td { padding: 5px 8px; border-bottom: 1px solid rgba(43,47,54,.5); }
+      table.ttbl tr:hover td { background: var(--surface2); }
+      .side { font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 2px; }
+      .side.long { background: rgba(3,166,109,.15); color: var(--green); }
+      .side.short { background: rgba(207,48,74,.15); color: var(--red); }
+      .pnl-pos { color: var(--green); }
+      .pnl-neg { color: var(--red); }
+      .tbl-footer { padding: 6px 12px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--muted); flex-shrink: 0; }
+      .pg-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 3px 8px; border-radius: 3px; font-size: 10px; cursor: pointer; font-family: var(--font); }
+      .pg-btn.active-pg { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+    </style>
+  </head>
+  <body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      AlgoEdge
+    </div>
+    <div class="header-center">
+      <div class="h-chip">Session <span class="val">RSI Reversal BTC</span></div>
+      <div class="h-chip"><span class="accent">BTCUSDT</span></div>
+      <div class="h-chip"><span class="val">4h</span></div>
+      <div class="h-chip">v3 <span class="accent">latest</span></div>
+      <div class="h-chip"><span class="green">+42.8%</span></div>
+      <div class="h-chip">220 trades</div>
+    </div>
+    <div class="header-right">
+      <div class="status"><div class="status-dot"></div>Live</div>
+      <div class="user-btn">
+        <div class="avatar">JK</div>
+        <span style="font-size:11px">Jacob</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <button class="toggle-btn" onclick="toggleSidebar()">◀</button>
+        <div class="sidebar-label">Sessions</div>
+        <button class="btn-new">＋<span class="btn-new-label"> New Chat</span></button>
+      </div>
+      <div class="sess-list">
+        <div class="sess-item active">
+          <div class="sess-icon">📈</div>
+          <div class="sess-info">
+            <div class="sess-name">RSI Reversal BTC</div>
+            <div class="sess-meta"><span>3 runs</span><span class="ret-pos">+42.8%</span></div>
+          </div>
+        </div>
+        <div class="sess-item">
+          <div class="sess-icon">📉</div>
+          <div class="sess-info">
+            <div class="sess-name">EMA Crossover ETH</div>
+            <div class="sess-meta"><span>Yesterday</span><span class="ret-neg">-4.2%</span></div>
+          </div>
+        </div>
+        <div class="sess-item">
+          <div class="sess-icon">📊</div>
+          <div class="sess-info">
+            <div class="sess-name">MACD Momentum SOL</div>
+            <div class="sess-meta"><span>2 runs</span><span class="ret-pos">+18.1%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHAT PANEL -->
+    <div class="chat-panel">
+      <div class="chat-header">
+        <span class="chat-title-label">AI Assistant</span>
+        <span class="session-badge">RSI Reversal BTC</span>
+      </div>
+
+      <div class="messages">
+        <div class="msg user">
+          <div class="msg-bubble">I want a mean reversion strategy on BTC using RSI oversold + volume confirmation</div>
+          <div class="msg-meta">You · 09:14</div>
+        </div>
+        <div class="msg ai">
+          <div class="msg-bubble">
+            Great. Building RSI + Volume MA strategy now:
+            <div class="code-block">strategy: RSI Reversal BTC
+market:
+  symbol: BTCUSDT
+  timeframe: 4h
+indicator:
+  rsi: 14
+  ema_slow: 200
+entry:
+  condition: ["rsi < 30 and close > ema_slow"]
+exit:
+  condition: ["rsi > 65"]
+risk:
+  stop_loss: 3
+  take_profit: 8</div>
+          </div>
+          <div class="msg-meta">AlgoEdge AI · 09:14</div>
+        </div>
+        <div class="msg ai">
+          <div class="msg-bubble">
+            ✅ Backtest complete.<br><br>
+            <span style="color:var(--green)">+42.8% return</span> · 220 trades · 67.3% win<br>
+            Sharpe 1.84 · Max DD −12.4%
+          </div>
+          <div class="msg-meta">AlgoEdge AI · 09:15</div>
+        </div>
+        <div class="msg user">
+          <div class="msg-bubble">Try with EMA 50 crossover as extra filter</div>
+          <div class="msg-meta">You · 09:18</div>
+        </div>
+        <div class="msg ai">
+          <div class="msg-bubble">Updated strategy with EMA50 filter:</div>
+          <div class="msg-meta">AlgoEdge AI · 09:18</div>
+        </div>
+      </div>
+
+      <!-- Suggested strategy banner (shown after AI suggests new version) -->
+      <div class="suggested-banner">
+        <div class="suggested-label">✨ AI suggests a new strategy</div>
+        <div class="suggested-name">rsi_reversal_btc_v2</div>
+        <div class="suggested-meta">BTCUSDT · 4h · SL 3% · TP 8%</div>
+        <div class="suggested-actions">
+          <button class="btn-dismiss">Dismiss</button>
+          <button class="btn-apply">Apply &amp; Run</button>
+        </div>
+      </div>
+
+      <!-- Chat input -->
+      <div class="chat-input-area">
+        <div class="chat-input-row">
+          <textarea class="chat-input" rows="2" placeholder="Describe a strategy or ask AI to modify..."></textarea>
+          <button class="btn-send">▶</button>
+        </div>
+      </div>
+
+      <!-- Backtest controls (shown only when strategy is active) -->
+      <div class="backtest-controls">
+        <div class="ctrl-label">Backtest Parameters</div>
+        <!-- Range presets -->
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;flex-wrap:wrap">
+          <span style="font-size:10px;color:var(--muted)">Range:</span>
+          <button class="pg-btn">3M</button>
+          <button class="pg-btn">6M</button>
+          <button class="pg-btn active-pg">1Y</button>
+          <button class="pg-btn">2Y</button>
+        </div>
+        <!-- Date pickers -->
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <input type="date" value="2024-01-01" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:11px;padding:5px 7px;border-radius:3px;outline:none">
+          <span style="color:var(--muted);font-size:11px">→</span>
+          <input type="date" value="2024-12-31" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:11px;padding:5px 7px;border-radius:3px;outline:none">
+        </div>
+        <!-- Capital -->
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <label style="font-size:10px;color:var(--muted);white-space:nowrap">Capital ($)</label>
+          <input type="number" value="1000000" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:11px;padding:5px 7px;border-radius:3px;outline:none">
+        </div>
+        <button class="btn-run">⚡ RUN BACKTEST</button>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+
+      <!-- Version nav -->
+      <div class="version-nav">
+        <div class="vn-left">
+          <span class="vn-label">Runs:</span>
+          <button class="vn-btn">v1</button>
+          <button class="vn-btn">v2</button>
+          <button class="vn-btn active">v3 ★</button>
+        </div>
+        <div class="vn-right">
+          <span class="name">RSI Reversal BTC</span>
+          <span>2023-01 → 2024-12</span>
+          <span class="pos">+42.8%</span>
+          <span>WR 67%</span>
+        </div>
+        <!-- Warnings shown when applicable -->
+        <div class="warn-strip warn-orange" style="display:none">⚠️ Insufficient historical data for warm-up (199 bars needed). Consider a longer date range.</div>
+        <div class="warn-strip warn-yellow" style="display:none">⚠️ Data available: 2023-03 – 2024-12 (640 of 730 days, 88% coverage)</div>
+      </div>
+
+      <!-- Strategy DSL strip -->
+      <div class="strategy-strip">
+        <span class="strategy-name">RSI Reversal BTC</span>
+        <span class="ind-badge">RSI(14)</span>
+        <span class="ind-badge">EMA_S(200)</span>
+        <div class="risk-meta">
+          <span class="sl">SL 3%</span>
+          <span class="tp">TP 8%</span>
+          <span style="color:var(--muted)">Size 100%</span>
+        </div>
+        <button class="copy-btn">⎘ Copy ▾</button>
+      </div>
+
+      <!-- Top row: chart + stats+DSL -->
+      <div class="top-row">
+
+        <!-- Equity chart -->
+        <div class="chart-card">
+          <div class="card-header">
+            <div class="card-title">
+              <span>Equity Curve</span>
+              <strong>RSI Reversal BTC</strong>
+              <span class="pair-badge">BTCUSDT · 4h</span>
+            </div>
+            <div class="tf-tabs">
+              <button class="tf-btn">1h</button>
+              <button class="tf-btn active">4h</button>
+              <button class="tf-btn">1d</button>
+            </div>
+          </div>
+          <div class="chart-area">
+            <div class="chart-info">
+              <div class="chart-val">+42.8%</div>
+              <div class="chart-sub">Total Return · 220 trades · 2023-01→2024-12</div>
+            </div>
+            <svg viewBox="0 0 800 240" preserveAspectRatio="none" style="width:100%;height:100%">
+              <defs>
+                <linearGradient id="eg" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#03a66d" stop-opacity="0.3"/>
+                  <stop offset="100%" stop-color="#03a66d" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <line x1="0" y1="60" x2="800" y2="60" stroke="#1e2d45" stroke-width="1"/>
+              <line x1="0" y1="120" x2="800" y2="120" stroke="#1e2d45" stroke-width="1"/>
+              <line x1="0" y1="180" x2="800" y2="180" stroke="#1e2d45" stroke-width="1"/>
+              <text x="4" y="58" fill="#4a5c7a" font-size="9">+60%</text>
+              <text x="4" y="118" fill="#4a5c7a" font-size="9">+40%</text>
+              <text x="4" y="178" fill="#4a5c7a" font-size="9">+20%</text>
+              <text x="4" y="210" fill="#4a5c7a" font-size="9">0%</text>
+              <path d="M0,200 C60,192 120,196 180,178 C240,160 300,172 360,152 C420,132 480,145 540,118 C600,91 660,100 720,72 L800,55" fill="none" stroke="#f0b90b" stroke-width="1.5" stroke-dasharray="5,3" opacity="0.5"/>
+              <path d="M0,200 C60,195 120,188 180,175 C240,162 300,168 360,150 C420,132 480,140 540,110 C600,80 660,88 720,60 L800,35 L800,230 L0,230 Z" fill="url(#eg)"/>
+              <path d="M0,200 C60,195 120,188 180,175 C240,162 300,168 360,150 C420,132 480,140 540,110 C600,80 660,88 720,60 L800,35" fill="none" stroke="#03a66d" stroke-width="2"/>
+              <circle cx="180" cy="175" r="3.5" fill="#03a66d" opacity="0.9"/>
+              <circle cx="360" cy="150" r="3.5" fill="#cf304a" opacity="0.9"/>
+              <circle cx="540" cy="110" r="3.5" fill="#03a66d" opacity="0.9"/>
+              <circle cx="720" cy="60" r="3.5" fill="#03a66d" opacity="0.9"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Stats + DSL -->
+        <div class="right-stack">
+          <div class="card-header">
+            <span class="card-title">Performance Stats</span>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-cell"><div class="stat-lbl">Total Return</div><div class="stat-val green">+42.8%</div><div class="stat-sub">vs BTC +31.2%</div></div>
+            <div class="stat-cell"><div class="stat-lbl">Win Rate</div><div class="stat-val accent">67.3%</div><div class="stat-sub">148W / 72L</div></div>
+            <div class="stat-cell"><div class="stat-lbl">Sharpe Ratio</div><div class="stat-val accent">1.84</div><div class="stat-sub">Sortino 2.31</div></div>
+            <div class="stat-cell"><div class="stat-lbl">Max Drawdown</div><div class="stat-val red">−12.4%</div><div class="stat-sub">14 days dur.</div></div>
+            <div class="stat-cell"><div class="stat-lbl">Total Trades</div><div class="stat-val white">220</div><div class="stat-sub">~9.2 / month</div></div>
+            <div class="stat-cell"><div class="stat-lbl">Profit Factor</div><div class="stat-val green">2.18</div><div class="stat-sub">Avg W/L 3.1×</div></div>
+          </div>
+          <div class="dsl-section">
+            <div class="dsl-header" onclick="toggleDsl()">Strategy DSL <span>▾</span></div>
+            <div class="dsl-body" id="dslBody">
+              <div><span class="dc"># RSI Reversal BTC</span></div>
+              <div><span class="dk">strategy:</span> <span class="dv">RSI Reversal BTC</span></div>
+              <div><span class="dk">market:</span></div>
+              <div>&nbsp;&nbsp;<span class="dk">symbol:</span> <span class="dv">BTCUSDT</span></div>
+              <div>&nbsp;&nbsp;<span class="dk">timeframe:</span> <span class="dv">4h</span></div>
+              <div><span class="dk">indicator:</span></div>
+              <div>&nbsp;&nbsp;<span class="dk">rsi:</span> <span class="dv">14</span></div>
+              <div>&nbsp;&nbsp;<span class="dk">ema_slow:</span> <span class="dv">200</span></div>
+              <div><span class="dk">entry:</span></div>
+              <div>&nbsp;&nbsp;<span class="dk">condition:</span> <span class="dv">"rsi &lt; 30 and close &gt; ema_slow"</span></div>
+              <div><span class="dk">exit:</span></div>
+              <div>&nbsp;&nbsp;<span class="dk">condition:</span> <span class="dv">"rsi &gt; 65"</span></div>
+              <div><span class="dk">risk:</span></div>
+              <div>&nbsp;&nbsp;<span class="dk">stop_loss:</span> <span class="dv">3</span></div>
+              <div>&nbsp;&nbsp;<span class="dk">take_profit:</span> <span class="dv">8</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom row: heatmap + trade table -->
+      <div class="bottom-row">
+
+        <!-- Monthly heatmap -->
+        <div class="heatmap-card">
+          <div class="section-header" onclick="toggleSection('hm')">Monthly P&amp;L Heatmap <span>▾</span></div>
+          <div class="section-body" id="hm">
+            <div class="hm-grid" id="hmGrid"></div>
+          </div>
+        </div>
+
+        <!-- Trade table (2 rows per trade: Entry + Exit) -->
+        <div class="trades-card">
+          <div class="section-header" onclick="toggleSection('tb')">
+            Trade History <span style="color:var(--accent);margin-left:6px">220 trades</span>
+            <span style="margin-left:auto">▾</span>
+          </div>
+          <div class="table-wrap" id="tb">
+            <table class="ttbl">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Type</th>
+                  <th><span style="cursor:pointer">Date / Time ↑</span></th>
+                  <th>Signal</th>
+                  <th style="text-align:right">Price</th>
+                  <th style="text-align:right">Net P&L</th>
+                  <th style="text-align:right">Cumulative P&L</th>
+                </tr>
+              </thead>
+              <tbody id="tradesTbody"></tbody>
+              <tfoot>
+                <tr style="border-top:1px solid var(--border)">
+                  <td colspan="5" style="padding:6px 8px;font-size:10px;color:var(--muted)">148W / 72L · Fees: $892.40</td>
+                  <td colspan="2" style="padding:6px 8px;text-align:right;font-weight:700;color:var(--green)">+$428,000</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div class="tbl-footer">
+            <span>Showing 1–10 of 220 trades</span>
+            <div style="display:flex;gap:4px">
+              <button class="pg-btn">← Prev</button>
+              <button class="pg-btn active-pg">1</button>
+              <button class="pg-btn">2</button>
+              <button class="pg-btn">3</button>
+              <button class="pg-btn">…</button>
+              <button class="pg-btn">22</button>
+              <button class="pg-btn">Next →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Sidebar toggle
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('collapsed');
+    }
+
+    // DSL collapse
+    function toggleDsl() {
+      const b = document.getElementById('dslBody');
+      b.style.display = b.style.display === 'none' ? '' : 'none';
+    }
+
+    // Generic section toggle
+    function toggleSection(id) {
+      const b = document.getElementById(id);
+      b.style.display = b.style.display === 'none' ? '' : 'none';
+    }
+
+    // Heatmap
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const years = ['2023','2024'];
+    const data = [8.2,-1.3,6.7,3.1,-0.8,4.4,2.9,-4.1,5.2,3.8,-0.5,7.1,4.3,2.1,-1.8,5.6,3.3,-2.2,1.9,3.7,-0.9,4.8,2.6,1.2];
+    const grid = document.getElementById('hmGrid');
+    grid.innerHTML = '<div class="hm-hdr"></div>' + months.map(m=>`<div class="hm-hdr">${m}</div>`).join('');
+    years.forEach((yr,yi) => {
+      grid.innerHTML += `<div class="hm-hdr" style="color:var(--text)">${yr}</div>`;
+      months.forEach((m,mi) => {
+        const val = data[yi*12+mi];
+        const int = Math.abs(val)/10;
+        const bg = val>=0 ? `rgba(3,166,109,${Math.min(.7,int+.1)})` : `rgba(207,48,74,${Math.min(.7,int+.1)})`;
+        const c = val>=0 ? '#03a66d' : '#cf304a';
+        grid.innerHTML += `<div class="hm-cell" style="background:${bg};color:${c}" title="${yr} ${m}: ${val>0?'+':''}${val}%">${val>0?'+':''}${val}</div>`;
+      });
+    });
+
+    // Trade table — 2 rows per trade (Entry + Exit) matching TradeTable.tsx
+    const trades = [
+      { id:220, side:'long',  entryDt:'Dec 15, 24 12:00', exitDt:'Dec 15, 24 18:22', entryP:'$98,210',  exitP:'$106,567', pnl:'+$866',   cumPnl:'+$428,000', pnlPct:'+0.09%', cumPct:'+42.8%', win:true  },
+      { id:219, side:'long',  entryDt:'Dec 02, 24 08:00', exitDt:'Dec 02, 24 11:08', entryP:'$96,840',  exitP:'$93,934',  pnl:'-$840',   cumPnl:'+$427,134', pnlPct:'-0.08%', cumPct:'+42.7%', win:false },
+      { id:218, side:'short', entryDt:'Nov 18, 24 15:00', exitDt:'Nov 18, 24 19:33', entryP:'$91,430',  exitP:'$88,560',  pnl:'+$313',   cumPnl:'+$427,974', pnlPct:'+0.03%', cumPct:'+42.8%', win:true  },
+      { id:217, side:'long',  entryDt:'Nov 05, 24 09:00', exitDt:'Nov 05, 24 17:55', entryP:'$70,180',  exitP:'$76,096',  pnl:'+$840',   cumPnl:'+$427,661', pnlPct:'+0.08%', cumPct:'+42.8%', win:true  },
+      { id:216, side:'long',  entryDt:'Oct 22, 24 14:00', exitDt:'Oct 22, 24 16:17', entryP:'$67,310',  exitP:'$65,290',  pnl:'-$301',   cumPnl:'+$426,821', pnlPct:'-0.03%', cumPct:'+42.7%', win:false },
+    ];
+    const tbody = document.getElementById('tradesTbody');
+    trades.forEach(t => {
+      const isLong = t.side==='long';
+      const sideBg = isLong ? 'background:rgba(3,166,109,.15);color:var(--green)' : 'background:rgba(207,48,74,.15);color:var(--red)';
+      const sigColor = isLong ? 'color:var(--green)' : 'color:var(--red)';
+      const entryType = isLong ? 'Long' : 'Short';
+      const exitType = isLong ? 'Long Exit' : 'Short Exit';
+      const winColor = t.win ? 'var(--green)' : 'var(--red)';
+      // Entry row
+      tbody.innerHTML += `<tr style="border-top:1px solid rgba(43,47,54,.4)">
+        <td rowspan="2" style="color:var(--muted);vertical-align:middle">${t.id}</td>
+        <td><span class="side" style="${sideBg};padding:2px 6px;border-radius:2px;font-size:10px;font-weight:700">Entry</span></td>
+        <td style="color:var(--muted);font-size:10px">${t.entryDt}</td>
+        <td style="${sigColor};font-weight:500">${entryType}</td>
+        <td style="text-align:right;color:var(--text)">${t.entryP}</td>
+        <td style="text-align:right;color:var(--muted)">—</td>
+        <td style="text-align:right;color:var(--muted)">—</td>
+      </tr>`;
+      // Exit row
+      tbody.innerHTML += `<tr style="border-bottom:1px solid rgba(43,47,54,.6)">
+        <td><span style="background:var(--surface2);color:var(--muted);padding:2px 6px;border-radius:2px;font-size:10px;font-weight:700">Exit</span></td>
+        <td style="color:var(--muted);font-size:10px">${t.exitDt}</td>
+        <td style="color:${winColor};font-weight:500">${exitType}</td>
+        <td style="text-align:right;color:var(--text)">${t.exitP}</td>
+        <td style="text-align:right;color:${winColor};font-weight:600">${t.pnl}<br><span style="font-size:10px;opacity:.7">${t.pnlPct}</span></td>
+        <td style="text-align:right;color:${winColor};font-weight:600">${t.cumPnl}<br><span style="font-size:10px;opacity:.7">${t.cumPct}</span></td>
+      </tr>`;
+    });
+  </script>
+  </body>
+</html>

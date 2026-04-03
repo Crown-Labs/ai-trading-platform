@@ -37,7 +37,8 @@ export default {
         muted: '#848e9c',
       },
       fontFamily: {
-        mono: ['"Courier New"', 'Courier', 'monospace'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', '"Courier New"', 'monospace'],
       },
     },
   },
