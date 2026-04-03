@@ -1,8 +1,11 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { MarketDataService } from './market-data.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('market-data')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('market-data')
 export class MarketDataController {
   constructor(private readonly marketDataService: MarketDataService) {}

@@ -9,8 +9,14 @@ COPY package.json yarn.lock ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/backend/package.json ./packages/backend/
 
+# Copy Prisma schema (needed for prisma generate during install)
+COPY packages/backend/prisma ./packages/backend/prisma
+
 # Install deps (--ignore-scripts: source not copied yet, postinstall would fail)
 RUN yarn install --frozen-lockfile --ignore-scripts
+
+# Generate Prisma client
+RUN npx prisma generate --schema=packages/backend/prisma/schema.prisma
 
 # Copy source
 COPY packages/shared ./packages/shared
@@ -30,10 +36,16 @@ COPY package.json yarn.lock ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/backend/package.json ./packages/backend/
 
+# Copy Prisma schema for runtime client generation
+COPY packages/backend/prisma ./packages/backend/prisma
+
 RUN yarn install --frozen-lockfile --production --ignore-scripts
+
+# Generate Prisma client in runtime
+RUN npx prisma generate --schema=packages/backend/prisma/schema.prisma
 
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/backend/dist ./packages/backend/dist
 
 EXPOSE 4000
-CMD ["node", "packages/backend/dist/main"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=packages/backend/prisma/schema.prisma && node packages/backend/dist/main"]

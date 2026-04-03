@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Header from './components/Header';
+import LoginPage from './components/LoginPage';
 import ChatPanel from './components/ChatPanel';
 import ChatSidebar from './components/ChatSidebar';
 import StrategyDSLViewer from './components/StrategyDSLViewer';
@@ -8,6 +9,7 @@ import BacktestChart from './components/BacktestChart';
 import TradeTable from './components/TradeTable';
 import BacktestHeatmap from './components/BacktestHeatmap';
 import BacktestVersionNav from './components/BacktestVersionNav';
+import { useAuth } from './hooks/useAuth';
 import { useChatSessions } from './hooks/useChatSessions';
 import { useTradeData } from './hooks/useTradeData';
 import { ChatSession } from './types/chat';
@@ -15,6 +17,30 @@ import { ChatSession } from './types/chat';
 const queryClient = new QueryClient();
 
 function App() {
+  const { user, isLoading: authLoading, login, logout } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="h-screen bg-dark-900 flex items-center justify-center">
+        <div className="text-gray-400 text-sm">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage onLogin={login} />;
+  }
+
+  return <MainApp user={user} onLogout={logout} />;
+}
+
+function MainApp({
+  user,
+  onLogout,
+}: {
+  user: { id: string; email: string; name?: string; picture?: string };
+  onLogout: () => void;
+}) {
   const {
     sessions,
     activeSession,
@@ -46,7 +72,7 @@ function App() {
 
   return (
     <div className="h-screen bg-dark-900 flex flex-col overflow-hidden">
-      <Header />
+      <Header user={user} onLogout={onLogout} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}

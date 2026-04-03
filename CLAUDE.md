@@ -15,6 +15,9 @@ ai-trading-platform/
 │   ├── web/          # React + TypeScript + Vite frontend
 │   ├── backend/      # NestJS + TypeScript API
 │   └── shared/       # Shared TypeScript utilities & types
+├── openclaw/         # OpenClaw AI gateway config (SOUL.md, openclaw.json)
+├── .github/workflows/  # CI/CD (test.yml, deploy.yml)
+├── docker-compose*.yml # Multiple compose files (dev, prod, build)
 ├── package.json      # Root workspace configuration
 └── CLAUDE.md        # This file
 ```
@@ -23,8 +26,11 @@ ai-trading-platform/
 
 **Frontend (Web)**
 - React 19 with TypeScript
-- Vite for build tooling
+- Vite 8 for build tooling
 - Tailwind CSS v3 for styling
+- React Query (@tanstack/react-query) for data fetching
+- Lightweight Charts + Recharts for charting
+- React Markdown for AI chat rendering
 - Custom dark theme design
 
 **Backend (API)**
@@ -32,9 +38,12 @@ ai-trading-platform/
 - Express as HTTP server
 - Swagger/OpenAPI documentation
 - Port 4000 with `/api` prefix
+- OpenClaw AI gateway integration for strategy generation
+- jsep expression parser for backtest conditions
+- @ixjb94/indicators-js for technical indicators
 
 **Shared**
-- TypeScript utilities and types
+- TypeScript utilities and types (StrategyDSL, BacktestResult, Trade, etc.)
 - Shared between web and backend
 - CommonJS module format
 
@@ -54,6 +63,11 @@ yarn backend dev  # http://localhost:4000/api
 # Build
 yarn web build
 yarn backend build
+
+# Test
+yarn backend test
+yarn web test
+yarn shared test
 ```
 
 ## Core Principles
@@ -81,22 +95,47 @@ yarn backend build
 ```
 packages/backend/src/
 ├── main.ts                 # Application entry, Swagger setup
-├── app.module.ts          # Root module
-├── app.controller.ts      # Controllers with Swagger decorators
-├── app.service.ts         # Business logic
-└── dto/                   # Data Transfer Objects
-    ├── *.dto.ts           # DTOs with @ApiProperty decorators
-    └── index.ts           # Barrel exports
+├── app.module.ts           # Root module (imports all feature modules)
+├── app.controller.ts       # Root controller (health, info)
+├── app.service.ts          # Root service
+├── dto/                    # Shared Data Transfer Objects
+│   ├── *.dto.ts            # DTOs with @ApiProperty decorators
+│   └── index.ts            # Barrel exports
+├── ai/                     # AI chat module (OpenClaw integration)
+│   ├── ai.module.ts
+│   ├── ai.controller.ts
+│   └── ai.service.ts
+├── backtest/               # Backtesting module
+│   ├── backtest.module.ts
+│   ├── backtest.controller.ts
+│   ├── backtest.service.ts
+│   └── engines/            # Backtest engine components
+│       ├── indicator.engine.ts
+│       ├── indicator-registry.ts
+│       ├── signal.engine.ts
+│       ├── condition.engine.ts  # jsep-based expression evaluator
+│       ├── risk.engine.ts
+│       ├── execution.engine.ts
+│       └── metrics.engine.ts
+├── market-data/            # Market data module (Binance candles)
+│   ├── market-data.module.ts
+│   ├── market-data.controller.ts
+│   └── market-data.service.ts
+└── indicators/             # Technical indicators module
+    ├── indicators.module.ts
+    └── indicators.service.ts
 ```
 
-**Creating New Endpoints:**
-1. Create DTO in `dto/` folder with Swagger decorators
-2. Add method to service with proper return type
-3. Add controller method with:
+**Creating New Feature Modules:**
+The backend uses NestJS feature modules. Each domain area has its own module:
+1. Create a new directory under `src/` (e.g., `src/my-feature/`)
+2. Create `my-feature.module.ts`, `my-feature.controller.ts`, `my-feature.service.ts`
+3. Create DTOs in `src/dto/` with Swagger decorators
+4. Import the module in `app.module.ts`
+5. Add Swagger decorators to controller methods:
    - `@ApiOperation()` for description
    - `@ApiResponse()` for response schema
    - `@ApiTags()` for grouping
-4. Use proper TypeScript return types
 
 **Example:**
 ```typescript
@@ -121,7 +160,7 @@ getExample(): ExampleDto {
 - All endpoints prefixed with `/api`
 - Always document with Swagger decorators
 - Use DTOs for type safety
-- Enable CORS for `http://localhost:3000`
+- CORS configured via `CORS_ORIGIN` env var (defaults to `http://localhost:3000`)
 
 ### Frontend (React + Vite)
 
@@ -131,10 +170,30 @@ packages/web/src/
 ├── main.tsx              # React entry point
 ├── App.tsx               # Main app component
 ├── index.css             # Tailwind directives & global styles
-└── components/           # Reusable components
-    ├── Header.tsx
-    ├── StatCard.tsx
-    └── MarketCard.tsx
+├── components/           # Reusable components
+│   ├── Header.tsx
+│   ├── StatCard.tsx
+│   ├── MarketCard.tsx
+│   ├── ChatPanel.tsx           # AI chat interface
+│   ├── ChatSidebar.tsx         # Chat session sidebar
+│   ├── BacktestChart.tsx       # TradingView-style chart
+│   ├── BacktestHeatmap.tsx     # Backtest parameter heatmap
+│   ├── BacktestStats.tsx       # Backtest metrics display
+│   ├── BacktestVersionNav.tsx  # Strategy version navigation
+│   ├── TradeTable.tsx          # Trade history table
+│   ├── ConfirmDialog.tsx       # Confirmation modal
+│   ├── StrategyDSLViewer.tsx   # Strategy DSL display
+│   └── SuggestedStrategyBanner.tsx
+├── hooks/                # Custom React hooks
+│   ├── useChatSessions.ts      # Chat session state management
+│   └── useTradeData.ts         # Trade data fetching
+├── lib/                  # Utilities & clients
+│   ├── api.ts                  # API client
+│   └── trade-store.ts          # IndexedDB state management
+├── types/                # TypeScript types
+│   └── chat.ts
+└── utils/                # Helper utilities
+    └── pine-script-generator.ts
 ```
 
 **Creating New Components:**
@@ -142,6 +201,7 @@ packages/web/src/
 2. Use TypeScript with proper prop types
 3. Use Tailwind CSS classes (no inline styles)
 4. Export as default
+5. Use React Query for data fetching (see `lib/api.ts` for the API client)
 
 **Styling Rules:**
 - Use Tailwind CSS utility classes only
@@ -165,19 +225,20 @@ packages/web/src/
 
 **API Integration:**
 - Backend API: `http://localhost:4000/api`
-- Use fetch or axios
+- Use the API client in `lib/api.ts` with React Query
 - Handle loading and error states
-- Type responses with DTOs from shared package
+- Type responses with types from `@ai-trading/shared`
 
 ## Common Tasks
 
 ### Adding a New API Endpoint
 
 1. Create DTO in `packages/backend/src/dto/my-feature.dto.ts`
-2. Add service method in `app.service.ts`
-3. Add controller method in `app.controller.ts` with Swagger decorators
+2. Add service method in the appropriate feature service (e.g., `backtest.service.ts`)
+3. Add controller method in the feature controller with Swagger decorators
 4. Export DTO from `dto/index.ts`
-5. Optionally add DTO to shared package if frontend needs it
+5. If adding a new domain, create a new NestJS module and import it in `app.module.ts`
+6. Optionally add shared types to `@ai-trading/shared`
 
 ### Adding a New React Component
 
@@ -256,22 +317,68 @@ packages/web/src/
 - Cards: `p-6`
 - Gaps: `gap-6` for grids
 
+## Environment Variables
+
+```bash
+# Backend
+PORT=4000                          # Backend server port
+CORS_ORIGIN=http://localhost:3000  # Allowed CORS origins
+
+# OpenClaw AI Gateway
+OPENCLAW_GATEWAY_URL=http://localhost:18789  # OpenClaw API URL
+OPENCLAW_GATEWAY_TOKEN=<token>              # Auth token
+OPENCLAW_AGENT_ID=strategy-advisor          # Agent name
+ANTHROPIC_API_KEY=<key>                     # For OpenClaw AI
+
+# Frontend (baked at build time)
+VITE_API_URL=                      # API URL (empty = relative, proxied by nginx)
+```
+
+## Docker & Deployment
+
+```bash
+# Development (OpenClaw in Docker, app runs locally)
+docker compose -f docker-compose.dev.yml up -d
+yarn dev
+
+# Full stack (all services in Docker)
+docker compose up -d
+
+# Production (pre-built images from Docker Hub)
+docker compose -f docker-compose.prod.yml up -d
+
+# Build & push images
+docker compose -f docker-compose.build.yml build
+docker compose -f docker-compose.build.yml push
+```
+
+**Docker Hub images:** `0xthoth/ai-trading-backend`, `0xthoth/ai-trading-web`
+
 ## Testing
+
+### Running Tests
+
+```bash
+yarn backend test    # Backend unit tests (Jest, node env)
+yarn web test        # Frontend unit tests (Jest, jsdom env)
+yarn shared test     # Shared package tests
+```
 
 ### Before Committing
 
-1. Run `yarn dev` and verify:
+1. Run tests: `yarn backend test && yarn web test`
+2. Run `yarn dev` and verify:
    - Web loads at http://localhost:3000
    - Backend runs at http://localhost:4000/api
    - Swagger docs at http://localhost:4000/api/docs
    - No console errors
 
-2. Check API integration:
+3. Check API integration:
    - Web can fetch from backend
    - CORS is working
    - Data displays correctly
 
-3. Verify responsive design:
+4. Verify responsive design:
    - Test mobile, tablet, desktop
    - Check navigation menu on mobile
 
@@ -346,7 +453,7 @@ Access documentation at: http://localhost:4000/api/docs
 
 ---
 
-**Last Updated:** 2026-03-23
+**Last Updated:** 2026-04-02
 **Maintained By:** Development Team
 
 For questions or clarifications, refer to this document first before making architectural decisions.

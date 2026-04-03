@@ -3,7 +3,8 @@
     "bind": "lan",
     "mode": "local",
     "auth": {
-      "mode": "token"
+      "mode": "token",
+      "token": "OPENCLAW_SEED_TOKEN"
     },
     "http": {
       "endpoints": {
@@ -15,7 +16,8 @@
     "defaults": {
       "model": {
         "primary": "anthropic/claude-sonnet-4-6"
-      }
+      },
+      "timeoutSeconds": 300
     },
     "list": [
       {

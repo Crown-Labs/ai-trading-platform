@@ -1,4 +1,4 @@
-# Dev mode: Only OpenClaw runs in Docker.
+# Dev mode: OpenClaw + PostgreSQL run in Docker.
 # Backend and web still run locally via `yarn dev`.
 #
 # Usage:
@@ -6,18 +6,52 @@
 #   yarn dev
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-trading-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ai_trading
+      POSTGRES_PASSWORD: ai_trading_dev
+      POSTGRES_DB: ai_trading
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_trading"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   openclaw:
     image: ghcr.io/openclaw/openclaw:latest
     container_name: ai-trading-openclaw
     restart: unless-stopped
+    user: root
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /tmp/openclaw-1000 /home/node/.openclaw/workspace-strategy-advisor
+        chown node:node /tmp/openclaw-1000
+        if [ ! -f /home/node/.openclaw/openclaw.json ]; then
+          sed -e "s/OPENCLAW_SEED_TOKEN/$$OPENCLAW_GATEWAY_TOKEN/" \
+              /seed/openclaw.json > /home/node/.openclaw/openclaw.json
+        fi
+        cp /seed/SOUL.md /home/node/.openclaw/workspace-strategy-advisor/SOUL.md
+        chown -R node:node /home/node/.openclaw
+        su -s /bin/sh node -c 'node /app/openclaw.mjs gateway --allow-unconfigured'
     ports:
       - "18789:18789"   # exposed to host so local backend can reach it
     volumes:
-      - openclaw-data:/root/.openclaw
-      - ./openclaw/SOUL.md:/root/.openclaw/workspace-strategy-advisor/SOUL.md:ro
-      - ./openclaw/openclaw.json:/root/.openclaw/openclaw.json:ro
+      - openclaw-data:/home/node/.openclaw
+      - ./openclaw/SOUL.md:/seed/SOUL.md:ro
+      - ./openclaw/openclaw.json:/seed/openclaw.json:ro
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
 
 volumes:
   openclaw-data:
+  postgres-data:

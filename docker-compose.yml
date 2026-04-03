@@ -1,4 +1,23 @@
 services:
+  # ── PostgreSQL Database ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-trading-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ai_trading}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ai_trading_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_trading}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_trading"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-trading
+
   # ── OpenClaw AI Gateway ──────────────────────────────────────────
   openclaw:
     image: ghcr.io/openclaw/openclaw:latest
@@ -26,11 +45,18 @@ services:
       - "4000:4000"
     environment:
       - PORT=4000
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-ai_trading}:${POSTGRES_PASSWORD:-ai_trading_dev}@postgres:5432/${POSTGRES_DB:-ai_trading}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - OPENCLAW_GATEWAY_URL=http://openclaw:18789
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - OPENCLAW_AGENT_ID=${OPENCLAW_AGENT_ID:-strategy-advisor}
     depends_on:
-      - openclaw
+      postgres:
+        condition: service_healthy
+      openclaw:
+        condition: service_started
     networks:
       - ai-trading
 
@@ -54,3 +80,4 @@ networks:
 
 volumes:
   openclaw-data:
+  postgres-data:

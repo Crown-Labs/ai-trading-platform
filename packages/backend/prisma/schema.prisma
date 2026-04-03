@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  googleId     String        @unique
+  email        String        @unique
+  name         String?
+  picture      String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  chatSessions ChatSession[]
+}
+
+model ChatSession {
+  id              String        @id @default(uuid())
+  title           String        @default("New Chat")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeStrategy  Json?
+  activeRunId     String?
+  messages        ChatMessage[]
+  backtestRuns    BacktestRun[]
+
+  @@index([userId])
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  role      String
+  content   String
+  strategy  Json?
+  createdAt DateTime    @default(now())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model BacktestRun {
+  id           String      @id @default(uuid())
+  version      Int
+  strategyName String
+  startDate    String
+  endDate      String
+  strategy     Json
+  metrics      Json
+  createdAt    DateTime    @default(now())
+  sessionId    String
+  session      ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model CandleCache {
+  id        Int      @id @default(autoincrement())
+  symbol    String
+  timeframe String
+  timestamp BigInt
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+  volume    Float
+
+  @@unique([symbol, timeframe, timestamp])
+  @@index([symbol, timeframe])
+}

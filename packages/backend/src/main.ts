@@ -1,10 +1,14 @@
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Global validation pipe
+  app.useGlobalPipes(new ValidationPipe({ transform: true }));
 
   // Enable CORS for frontend
   app.enableCors({
@@ -20,9 +24,13 @@ async function bootstrap() {
     .setTitle('AI Trading Platform API')
     .setDescription('API documentation for AI Trading Platform')
     .setVersion('1.0')
+    .addBearerAuth()
     .addTag('health', 'Health check endpoints')
     .addTag('trading', 'Trading related endpoints')
     .addTag('ai', 'AI chat endpoints')
+    .addTag('auth', 'Authentication endpoints')
+    .addTag('user', 'User endpoints')
+    .addTag('chat', 'Chat session endpoints')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

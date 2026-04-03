@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ai-trading/shared": "1.0.0",
+    "@react-oauth/google": "^0.12.1",
     "@tanstack/react-query": "^5.95.2",
     "idb": "^8.0.3",
     "lightweight-charts": "^5.1.0",

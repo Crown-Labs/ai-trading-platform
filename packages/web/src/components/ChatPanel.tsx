@@ -7,7 +7,7 @@ import { ChatSession, ChatMessage } from '../types/chat';
 
 import { saveRunData } from '../lib/trade-store';
 import { useQueryClient } from '@tanstack/react-query';
-import { API_BASE } from '../lib/api';
+import { API_BASE, apiFetchRaw, getAuthHeaders } from '../lib/api';
 
 interface ChatPanelProps {
   session: ChatSession;
@@ -178,15 +178,15 @@ export default function ChatPanel({ session, onUpdate, onAddRun }: ChatPanelProp
         initialCapital,
       };
 
-      const res = await fetch(API_BASE + '/api/backtest/run', {
+      const res = await apiFetchRaw('/api/backtest/run', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ strategy: strategyWithDates }),
       });
       const backtestResult = await res.json();
 
       const candleRes = await fetch(
         `${API_BASE}/api/market-data/candles?symbol=${strategy.market.symbol}&interval=${strategy.market.timeframe}&startTime=${new Date(dateRange.startDate).getTime()}&endTime=${new Date(dateRange.endDate).getTime()}`,
+        { headers: getAuthHeaders() },
       );
       const candles = candleRes.ok ? await candleRes.json() : [];
 
@@ -241,9 +241,8 @@ Please analyze these results and suggest specific improvements to optimize the s
 
       setStreamingText('');
 
-      const aiRes = await fetch(API_BASE + '/api/ai/chat', {
+      const aiRes = await apiFetchRaw('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: messagesForAI.map((m) => ({ role: m.role, content: m.content })),
           sessionId: session.id,
@@ -321,9 +320,8 @@ Please analyze these results and suggest specific improvements to optimize the s
     // /api/strategy/parse endpoint is no longer called from the frontend
 
     try {
-      const res = await fetch(API_BASE + '/api/ai/chat', {
+      const res = await apiFetchRaw('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: newMessages.map((m) => ({
             role: m.role,
