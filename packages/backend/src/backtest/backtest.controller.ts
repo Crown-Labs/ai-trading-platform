@@ -1,9 +1,12 @@
-import { Body, Controller, Post } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { BacktestService } from './backtest.service';
 import { RunBacktestDto, BacktestResultDto } from '../dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('backtest')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('backtest')
 export class BacktestController {
   constructor(private readonly backtestService: BacktestService) {}

@@ -1,8 +1,16 @@
 import { MarketDataService } from './market-data.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 // Mock global fetch
 const mockFetch = jest.fn();
 (global as any).fetch = mockFetch;
+
+const mockPrisma = {
+  candleCache: {
+    findMany: jest.fn().mockResolvedValue([]),
+    createMany: jest.fn().mockResolvedValue({ count: 0 }),
+  },
+} as unknown as PrismaService;
 
 function makeBinanceKline(timestamp: number, close: number): any[] {
   return [
@@ -25,7 +33,7 @@ describe('Issue #2 — MarketDataService', () => {
   let service: MarketDataService;
 
   beforeEach(() => {
-    service = new MarketDataService();
+    service = new MarketDataService(mockPrisma);
     mockFetch.mockReset();
   });
 
@@ -69,7 +77,7 @@ describe('Issue #9 — Date range pagination', () => {
   let service: MarketDataService;
 
   beforeEach(() => {
-    service = new MarketDataService();
+    service = new MarketDataService(mockPrisma);
     mockFetch.mockReset();
   });
 

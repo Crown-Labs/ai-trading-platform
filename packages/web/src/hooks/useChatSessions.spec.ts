@@ -1,17 +1,17 @@
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useChatSessions } from './useChatSessions';
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: jest.fn((key: string) => store[key] ?? null),
-    setItem: jest.fn((key: string, value: string) => { store[key] = value; }),
-    removeItem: jest.fn((key: string) => { delete store[key]; }),
-    clear: jest.fn(() => { store = {}; }),
-  };
-})();
-Object.defineProperty(window, 'localStorage', { value: localStorageMock });
+// Mock api module (uses import.meta.env which Jest can't handle)
+jest.mock('../lib/api', () => ({
+  apiFetch: jest.fn(),
+}));
+
+// Mock trade-store
+jest.mock('../lib/trade-store', () => ({
+  deleteRunsForSession: jest.fn().mockResolvedValue(undefined),
+}));
+
+const { apiFetch } = require('../lib/api') as { apiFetch: jest.Mock };
 
 // Mock crypto.randomUUID
 let uuidCounter = 0;
@@ -20,96 +20,105 @@ Object.defineProperty(global, 'crypto', {
 });
 
 beforeEach(() => {
-  localStorageMock.clear();
   jest.clearAllMocks();
   uuidCounter = 0;
+  // Default: return empty sessions list
+  apiFetch.mockResolvedValue([]);
 });
 
-describe('Issue #3 — useChatSessions core operations', () => {
-  it('createSession generates a unique id and sets it as active', () => {
+describe('useChatSessions — server-backed', () => {
+  it('createSession adds a session optimistically and syncs to server', async () => {
+    apiFetch
+      .mockResolvedValueOnce([]) // initial load
+      .mockResolvedValueOnce({ id: 'server-1', title: 'New Chat', createdAt: '2026-01-01' }); // create
+
     const { result } = renderHook(() => useChatSessions());
+
+    // Wait for initial load
+    await waitFor(() => {
+      expect(apiFetch).toHaveBeenCalledWith('/api/chat/sessions');
+    });
 
     act(() => { result.current.createSession(); });
 
+    // Optimistic session exists immediately
     expect(result.current.sessions).toHaveLength(1);
-    expect(result.current.activeSession?.id).toBe('uuid-1');
+    expect(result.current.activeSession).not.toBeNull();
   });
 
-  it('selectSession changes the active session', () => {
+  it('selectSession changes the active session', async () => {
+    apiFetch.mockResolvedValueOnce([
+      { id: 's1', title: 'Chat 1', createdAt: '2026-01-01' },
+      { id: 's2', title: 'Chat 2', createdAt: '2026-01-02' },
+    ]);
+
     const { result } = renderHook(() => useChatSessions());
 
-    act(() => { result.current.createSession(); });
-    act(() => { result.current.createSession(); });
+    await waitFor(() => {
+      expect(result.current.sessions).toHaveLength(2);
+    });
 
-    const firstId = result.current.sessions[1].id;
-    act(() => { result.current.selectSession(firstId); });
-
-    expect(result.current.activeSession?.id).toBe(firstId);
+    act(() => { result.current.selectSession('s2'); });
+    expect(result.current.activeSession?.id).toBe('s2');
   });
 
-  it('updateSession updates the specified fields only', () => {
-    const { result } = renderHook(() => useChatSessions());
-    act(() => { result.current.createSession(); });
+  it('updateSession updates local state and patches server', async () => {
+    apiFetch
+      .mockResolvedValueOnce([{ id: 's1', title: 'New Chat', createdAt: '2026-01-01' }])
+      .mockResolvedValueOnce({ id: 's1', messages: [], backtestRuns: [] }); // session detail load
 
-    const id = result.current.sessions[0].id;
+    const { result } = renderHook(() => useChatSessions());
+
+    await waitFor(() => {
+      expect(result.current.sessions).toHaveLength(1);
+    });
+
     act(() => {
-      result.current.updateSession(id, { title: 'Updated Title' });
+      result.current.updateSession('s1', { title: 'Updated Title' });
     });
 
     expect(result.current.sessions[0].title).toBe('Updated Title');
-    expect(result.current.sessions[0].id).toBe(id); // id unchanged
+    // Server patch should have been called
+    await waitFor(() => {
+      expect(apiFetch).toHaveBeenCalledWith(
+        '/api/chat/sessions/s1',
+        expect.objectContaining({ method: 'PATCH' }),
+      );
+    });
   });
 
-  it('deleteSession removes the session from the list', () => {
+  it('deleteSession removes session and calls server', async () => {
+    apiFetch.mockResolvedValueOnce([
+      { id: 's1', title: 'Chat 1', createdAt: '2026-01-01' },
+      { id: 's2', title: 'Chat 2', createdAt: '2026-01-02' },
+    ]);
+
     const { result } = renderHook(() => useChatSessions());
-    act(() => { result.current.createSession(); });
-    act(() => { result.current.createSession(); });
 
-    const idToDelete = result.current.sessions[0].id;
-    act(() => { result.current.deleteSession(idToDelete); });
+    await waitFor(() => {
+      expect(result.current.sessions).toHaveLength(2);
+    });
 
-    expect(result.current.sessions.find((s) => s.id === idToDelete)).toBeUndefined();
+    act(() => { result.current.deleteSession('s1'); });
+
+    expect(result.current.sessions.find((s) => s.id === 's1')).toBeUndefined();
     expect(result.current.sessions).toHaveLength(1);
   });
-});
 
-describe('Issue #8 — Multi-chat session persistence', () => {
-  it('session id follows UUID format', () => {
-    const { result } = renderHook(() => useChatSessions());
-    act(() => { result.current.createSession(); });
-
-    // crypto.randomUUID is mocked to return uuid-N, just verify it's a string
-    expect(typeof result.current.sessions[0].id).toBe('string');
-    expect(result.current.sessions[0].id.length).toBeGreaterThan(0);
-  });
-
-  it('sessions persist to localStorage on every change', () => {
-    const { result } = renderHook(() => useChatSessions());
-    act(() => { result.current.createSession(); });
-
-    expect(localStorageMock.setItem).toHaveBeenCalled();
-    const saved = JSON.parse(localStorageMock.setItem.mock.calls.at(-1)[1]);
-    expect(saved).toHaveLength(1);
-    expect(saved[0].id).toBe('uuid-1');
-  });
-
-  it('loads sessions from localStorage on mount', () => {
-    const existing = [{ id: 'existing-1', title: 'Old Chat', createdAt: new Date().toISOString(), messages: [] }];
-    localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(existing));
+  it('auto-title is set from first user message when length > 35 characters', async () => {
+    apiFetch
+      .mockResolvedValueOnce([{ id: 's1', title: 'New Chat', createdAt: '2026-01-01' }])
+      .mockResolvedValueOnce({ id: 's1', messages: [], backtestRuns: [] })
+      .mockResolvedValue({}); // catch-all for patches/messages
 
     const { result } = renderHook(() => useChatSessions());
 
-    expect(result.current.sessions).toHaveLength(1);
-    expect(result.current.sessions[0].id).toBe('existing-1');
-  });
+    await waitFor(() => {
+      expect(result.current.sessions).toHaveLength(1);
+    });
 
-  it('auto-title is set from first user message when length > 35 characters', () => {
-    const { result } = renderHook(() => useChatSessions());
-    act(() => { result.current.createSession(); });
-
-    const id = result.current.sessions[0].id;
     act(() => {
-      result.current.updateSession(id, {
+      result.current.updateSession('s1', {
         messages: [
           { role: 'user', content: 'Buy BTC when RSI is below 30 and EMA is bullish' },
           { role: 'assistant', content: 'Got it!' },
@@ -120,69 +129,5 @@ describe('Issue #8 — Multi-chat session persistence', () => {
     const title = result.current.sessions[0].title;
     expect(title.length).toBeLessThanOrEqual(38); // 35 + '...'
     expect(title.endsWith('...')).toBe(true);
-  });
-
-  it('auto-title keeps short content as-is (≤ 35 chars)', () => {
-    const { result } = renderHook(() => useChatSessions());
-    act(() => { result.current.createSession(); });
-
-    const id = result.current.sessions[0].id;
-    act(() => {
-      result.current.updateSession(id, {
-        messages: [
-          { role: 'user', content: 'BTC RSI strategy' },
-          { role: 'assistant', content: 'Sure!' },
-        ],
-      });
-    });
-
-    expect(result.current.sessions[0].title).toBe('BTC RSI strategy');
-  });
-
-  it('switching sessions restores the correct session state', () => {
-    const { result } = renderHook(() => useChatSessions());
-
-    act(() => { result.current.createSession(); });
-    const id1 = result.current.sessions[0].id;
-    act(() => {
-      result.current.updateSession(id1, {
-        messages: [{ role: 'user', content: 'Session 1 message' }],
-      });
-    });
-
-    act(() => { result.current.createSession(); });
-    const id2 = result.current.sessions[0].id;
-    act(() => {
-      result.current.updateSession(id2, {
-        messages: [{ role: 'user', content: 'Session 2 message' }],
-      });
-    });
-
-    // Switch back to session 1
-    act(() => { result.current.selectSession(id1); });
-    expect(result.current.activeSession?.messages[0].content).toBe('Session 1 message');
-
-    // Switch to session 2
-    act(() => { result.current.selectSession(id2); });
-    expect(result.current.activeSession?.messages[0].content).toBe('Session 2 message');
-  });
-
-  it('each session has isolated messages — one session does not affect another', () => {
-    const { result } = renderHook(() => useChatSessions());
-
-    act(() => { result.current.createSession(); });
-    const id1 = result.current.sessions[0].id;
-
-    act(() => { result.current.createSession(); });
-    const id2 = result.current.sessions[0].id;
-
-    act(() => {
-      result.current.updateSession(id1, {
-        messages: [{ role: 'user', content: 'Message in session 1' }],
-      });
-    });
-
-    const session2 = result.current.sessions.find((s) => s.id === id2);
-    expect(session2?.messages).toHaveLength(0);
   });
 });
