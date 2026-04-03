@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChatSession } from '../types/chat';
 import ConfirmDialog from './ConfirmDialog';
+import { Badge } from './ui';
 
 interface ChatSidebarProps {
   sessions: ChatSession[];
@@ -107,16 +108,10 @@ export default function ChatSidebar({
                           : formatDate(session.createdAt)}
                       </span>
                       {returnPct != null && (
-                        <span
-                          className={
-                            returnPct >= 0
-                              ? 'text-green font-semibold'
-                              : 'text-red font-semibold'
-                          }
-                        >
+                        <Badge variant={returnPct >= 0 ? 'green' : 'red'} size="xs" className="font-semibold">
                           {returnPct >= 0 ? '+' : ''}
                           {returnPct.toFixed(1)}%
-                        </span>
+                        </Badge>
                       )}
                     </div>
                   </div>

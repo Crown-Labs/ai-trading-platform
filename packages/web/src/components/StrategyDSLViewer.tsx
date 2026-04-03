@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { StrategyDSL } from '@ai-trading/shared';
 import YAML from 'yaml';
 import { generatePineScript } from '../utils/pine-script-generator';
+import { Badge } from './ui';
 
 interface StrategyDSLViewerProps {
   strategy: StrategyDSL;
@@ -83,12 +84,9 @@ export default function StrategyDSLViewer({ strategy }: StrategyDSLViewerProps) 
 
       {/* Indicator badges */}
       {indicators.map((label) => (
-        <span
-          key={label}
-          className="bg-dark-700 border border-dark-700 text-[10px] px-1.5 py-0.5 rounded text-accent whitespace-nowrap"
-        >
+        <Badge key={label} variant="muted" className="text-accent">
           {label}
-        </span>
+        </Badge>
       ))}
 
       {/* SL / TP / Size */}

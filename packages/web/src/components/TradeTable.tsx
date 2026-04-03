@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Trade } from '@ai-trading/shared';
+import { Badge, SectionHeader, TerminalButton } from './ui';
 
 interface TradeTableProps {
   trades: Trade[];
@@ -71,17 +72,17 @@ export default function TradeTable({ trades }: TradeTableProps) {
   return (
     <div className="flex flex-col h-full overflow-hidden bg-dark-900">
       {/* Section header */}
-      <div className="flex items-center px-3 py-2 border-b border-dark-700 flex-shrink-0 bg-dark-800">
-        <span className="text-[10px] text-muted uppercase tracking-wider">Trade History</span>
-        {trades.length > 0 && (
-          <span className="text-accent text-[10px] ml-2">{trades.length} trades</span>
-        )}
-        <span className="ml-auto text-[10px] text-muted">
-          {trades.length > 0
-            ? `${start + 1}–${Math.min(start + PAGE_SIZE, trades.length)} of ${trades.length}`
-            : '0 trades'}
-        </span>
-      </div>
+      <SectionHeader
+        title="Trade History"
+        count={trades.length > 0 ? `${trades.length} trades` : undefined}
+        right={
+          <span className="text-[10px] text-muted">
+            {trades.length > 0
+              ? `${start + 1}–${Math.min(start + PAGE_SIZE, trades.length)} of ${trades.length}`
+              : '0 trades'}
+          </span>
+        }
+      />
 
       {/* Table */}
       <div className="flex-1 overflow-y-auto">
@@ -128,9 +129,6 @@ export default function TradeTable({ trades }: TradeTableProps) {
               const entrySignal = isLong ? 'Long' : 'Short';
               const exitSignal = isLong ? 'Long Exit' : 'Short Exit';
               const sideColor = isLong ? 'text-green' : 'text-red';
-              const sideBg = isLong
-                ? 'bg-green/15 text-green'
-                : 'bg-red/15 text-red';
 
               return [
                 <tr
@@ -145,11 +143,7 @@ export default function TradeTable({ trades }: TradeTableProps) {
                     {trade.id}
                   </td>
                   <td className="py-1.5 px-2 align-middle">
-                    <span
-                      className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${sideBg}`}
-                    >
-                      Entry
-                    </span>
+                    <Badge variant={isLong ? 'green' : 'red'} className="font-bold">Entry</Badge>
                   </td>
                   <td className="py-1.5 px-2 text-muted align-middle">{formatDate(trade.entryTime)}</td>
                   <td className={`py-1.5 px-2 font-medium align-middle ${sideColor}`}>
@@ -168,9 +162,7 @@ export default function TradeTable({ trades }: TradeTableProps) {
                   style={{ borderBottom: '1px solid rgba(43,47,54,0.6)' }}
                 >
                   <td className="py-1.5 px-2 align-middle">
-                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-dark-700 text-muted">
-                      Exit
-                    </span>
+                    <Badge variant="muted" className="font-bold">Exit</Badge>
                   </td>
                   <td className="py-1.5 px-2 text-muted align-middle">{formatDate(trade.exitTime)}</td>
                   <td
@@ -243,13 +235,14 @@ export default function TradeTable({ trades }: TradeTableProps) {
             Showing {start + 1}–{Math.min(start + PAGE_SIZE, trades.length)} of {trades.length} trades
           </span>
           <div className="flex items-center gap-1">
-            <button
+            <TerminalButton
+              variant="ghost"
+              size="sm"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-2 py-0.5 text-[10px] rounded bg-dark-700 border border-dark-700 text-muted hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed font-mono"
             >
               ← Prev
-            </button>
+            </TerminalButton>
             {getPageNumbers().map((p, i) =>
               p === '...' ? (
                 <span key={`e-${i}`} className="px-1 text-muted text-[10px]">
@@ -269,13 +262,14 @@ export default function TradeTable({ trades }: TradeTableProps) {
                 </button>
               ),
             )}
-            <button
+            <TerminalButton
+              variant="ghost"
+              size="sm"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-2 py-0.5 text-[10px] rounded bg-dark-700 border border-dark-700 text-muted hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed font-mono"
             >
               Next →
-            </button>
+            </TerminalButton>
           </div>
         </div>
       )}

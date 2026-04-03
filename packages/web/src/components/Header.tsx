@@ -1,5 +1,6 @@
 import { ChatSession } from '../types/chat';
 import { BacktestRun } from '@ai-trading/shared';
+import { Badge } from './ui';
 
 interface HeaderProps {
   user: { name?: string; picture?: string; email: string };
@@ -28,35 +29,36 @@ export default function Header({ user, onLogout, activeSession, activeRun }: Hea
       <div className="flex-1 flex items-center justify-center gap-1.5 flex-wrap overflow-hidden">
         {activeSession && (
           <>
-            <div className="bg-dark-700 border border-dark-700 px-2 py-0.5 rounded text-[11px] text-muted whitespace-nowrap">
+            <Badge variant="muted" className="text-[11px] px-2 py-0.5">
               Session <span className="text-gray-200 font-semibold">{activeSession.title}</span>
-            </div>
+            </Badge>
             {strategy && (
               <>
-                <div className="bg-dark-700 border border-dark-700 px-2 py-0.5 rounded text-[11px] whitespace-nowrap">
+                <Badge variant="muted" className="text-[11px] px-2 py-0.5">
                   <span className="text-accent font-bold">{strategy.market.symbol}</span>
-                </div>
-                <div className="bg-dark-700 border border-dark-700 px-2 py-0.5 rounded text-[11px] whitespace-nowrap">
+                </Badge>
+                <Badge variant="muted" className="text-[11px] px-2 py-0.5">
                   <span className="text-gray-200 font-semibold">{strategy.market.timeframe}</span>
-                </div>
+                </Badge>
               </>
             )}
             {activeRun && (
-              <div className="bg-dark-700 border border-dark-700 px-2 py-0.5 rounded text-[11px] whitespace-nowrap">
+              <Badge variant="muted" className="text-[11px] px-2 py-0.5">
                 v{activeRun.version} <span className="text-accent font-bold">latest</span>
-              </div>
+              </Badge>
             )}
             {metrics && (
-              <div className="bg-dark-700 border border-dark-700 px-2 py-0.5 rounded text-[11px] whitespace-nowrap">
-                <span className={`font-bold ${metrics.totalReturn >= 0 ? 'text-green' : 'text-red'}`}>
-                  {metrics.totalReturn >= 0 ? '+' : ''}{metrics.totalReturn.toFixed(1)}%
-                </span>
-              </div>
+              <Badge
+                variant={metrics.totalReturn >= 0 ? 'green' : 'red'}
+                className="text-[11px] px-2 py-0.5 font-bold"
+              >
+                {metrics.totalReturn >= 0 ? '+' : ''}{metrics.totalReturn.toFixed(1)}%
+              </Badge>
             )}
             {metrics && (
-              <div className="bg-dark-700 border border-dark-700 px-2 py-0.5 rounded text-[11px] whitespace-nowrap text-muted">
+              <Badge variant="muted" className="text-[11px] px-2 py-0.5">
                 {metrics.totalTrades} trades
-              </div>
+              </Badge>
             )}
           </>
         )}

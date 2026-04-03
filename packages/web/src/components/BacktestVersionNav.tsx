@@ -1,4 +1,5 @@
 import { BacktestRun } from '@ai-trading/shared';
+import { Badge, TerminalButton } from './ui';
 
 interface BacktestVersionNavProps {
   runs: BacktestRun[];
@@ -20,38 +21,35 @@ export default function BacktestVersionNav({
     <div className="px-3.5 py-1.5 border-b border-dark-700 bg-dark-800 flex items-start justify-between flex-wrap gap-1.5 flex-shrink-0">
       <div className="flex items-center gap-1.5">
         <span className="text-[9px] text-muted uppercase tracking-wider">Runs:</span>
-        <button
+        <TerminalButton
+          variant="ghost"
+          size="sm"
           onClick={() => activeIndex > 0 && onSelect(runs[activeIndex - 1].id)}
           disabled={activeIndex <= 0}
-          className="text-muted hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed px-1 text-sm"
         >
           ←
-        </button>
+        </TerminalButton>
         <div className="flex items-center gap-1">
           {runs.map((run) => (
-            <button
+            <Badge
               key={run.id}
+              variant={run.id === activeRunId ? 'accent' : 'outline'}
               onClick={() => onSelect(run.id)}
-              className={`px-2.5 py-0.5 rounded text-[10px] font-semibold border cursor-pointer font-mono transition-colors ${
-                run.id === activeRunId
-                  ? 'bg-accent border-accent text-dark-900'
-                  : 'bg-transparent border-dark-700 text-muted hover:text-gray-200'
-              }`}
+              className="font-semibold font-mono px-2.5"
             >
               v{run.version}
               {run.id === activeRunId ? ' ★' : ''}
-            </button>
+            </Badge>
           ))}
         </div>
-        <button
-          onClick={() =>
-            activeIndex < runs.length - 1 && onSelect(runs[activeIndex + 1].id)
-          }
+        <TerminalButton
+          variant="ghost"
+          size="sm"
+          onClick={() => activeIndex < runs.length - 1 && onSelect(runs[activeIndex + 1].id)}
           disabled={activeIndex >= runs.length - 1}
-          className="text-muted hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed px-1 text-sm"
         >
           →
-        </button>
+        </TerminalButton>
       </div>
 
       {activeRun && (
